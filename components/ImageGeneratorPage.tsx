@@ -4,8 +4,14 @@ import { Page } from '../App';
 import { generateImage, generateGenericExamplePrompts, upscaleImage } from '../services/geminiService';
 import LoadingPlaceholder from './LoadingPlaceholder';
 import LoadingSpinner from './LoadingSpinner';
-import { Button, Card } from './ui';
-import { DownloadIcon, EditIcon, NewSessionIcon, ImageIcon, RefreshIcon, SparklesIcon } from './Icons';
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Download, Edit, FileImage, Loader2, RefreshCw, Sparkles, WandSparkles } from 'lucide-react';
+
 
 const loadingMessages = [
     "Warming up the AI's imagination...",
@@ -119,128 +125,124 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
   const aspectRatios = ['1:1', '16:9', '9:16', '4:3', '3:4'];
   const styles = ['none', 'photorealistic', 'cinematic', 'anime', 'watercolor', 'fantasy', 'surrealism', 'steampunk', 'minimalist'];
 
-  return (
-    <div>
-      <h2 className="text-3xl font-bold text-white mb-6">Image Generator</h2>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-        <Card className="p-6 sm:p-8 flex flex-col gap-6">
-          {!generatedImage ? (
-            <>
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label htmlFor="prompt" className="block text-sm font-medium text-gray-300">Prompt</label>
-                  <Button variant="ghost" size="sm" onClick={fetchPrompts} disabled={loadingPrompts || isLoading}>
-                      <RefreshIcon className={`w-4 h-4 mr-2 ${loadingPrompts ? 'animate-spin' : ''}`}/> Inspire Me
+  const renderGeneratorForm = () => (
+    <Card className="bg-slate-900/40 backdrop-blur-lg border-slate-700/80 text-white">
+      <CardHeader>
+        <CardTitle className="text-2xl">Image Generator</CardTitle>
+        <CardDescription>Describe the image you want to create.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-6">
+        <div className="grid gap-2">
+          <div className="flex justify-between items-center">
+            <Label htmlFor="prompt">Prompt</Label>
+            <Button variant="ghost" size="sm" onClick={fetchPrompts} disabled={loadingPrompts || isLoading}>
+              <RefreshCw className={`w-4 h-4 mr-2 ${loadingPrompts ? 'animate-spin' : ''}`}/> Inspire Me
+            </Button>
+          </div>
+          <Textarea
+            id="prompt"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="e.g., A majestic lion wearing a crown, cinematic lighting"
+            className="bg-slate-900/60 border-slate-700"
+          />
+        </div>
+
+        <div>
+            {loadingPrompts ? (
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Loading examples...</span>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {examplePrompts.map((p, i) => (
+                  <Button key={i} variant="outline" size="sm" onClick={() => setPrompt(p)} className="bg-slate-900/60 border-slate-700 hover:bg-slate-800">
+                    {p}
                   </Button>
-                </div>
-                <textarea
-                  id="prompt"
-                  rows={4}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg text-white p-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition placeholder:text-gray-500"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="e.g., A majestic lion wearing a crown, cinematic lighting"
-                />
+                ))}
               </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-400 mb-3">Or try an example:</h4>
-                {loadingPrompts ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
-                    <LoadingSpinner className="w-4 h-4" />
-                    <span>Loading examples...</span>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {examplePrompts.map((p, i) => (
-                      <button key={i} onClick={() => setPrompt(p)} className="text-sm bg-white/10 hover:bg-white/20 text-gray-200 px-3 py-1.5 rounded-full transition-colors">
-                        {p}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+            )}
+        </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="aspectRatio" className="block text-sm font-medium text-gray-300 mb-2">Aspect Ratio</label>
-                  <select
-                    id="aspectRatio"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg text-white p-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
-                    value={aspectRatio}
-                    onChange={(e) => setAspectRatio(e.target.value)}
-                  >
-                    {aspectRatios.map(ar => <option key={ar} value={ar} className="bg-[#0B0F19]">{ar}</option>)}
-                  </select>
-                </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="aspectRatio">Aspect Ratio</Label>
+            <Select value={aspectRatio} onValueChange={setAspectRatio}>
+              <SelectTrigger id="aspectRatio" className="bg-slate-900/60 border-slate-700">
+                <SelectValue placeholder="Select ratio" />
+              </SelectTrigger>
+              <SelectContent>
+                {aspectRatios.map(ar => <SelectItem key={ar} value={ar}>{ar}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="style">Style</Label>
+            <Select value={style} onValueChange={setStyle}>
+              <SelectTrigger id="style" className="bg-slate-900/60 border-slate-700">
+                <SelectValue placeholder="Select style" />
+              </SelectTrigger>
+              <SelectContent>
+                {styles.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter className="flex flex-col">
+        <Button size="lg" className="w-full" onClick={handleGenerate} disabled={isLoading}>
+          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <WandSparkles className="mr-2 h-4 w-4" />}
+          {isLoading ? loadingMessage : 'Generate Image'}
+        </Button>
+        {error && <p className="text-red-500 text-sm mt-4 text-center">{error}</p>}
+      </CardFooter>
+    </Card>
+  );
 
-                <div>
-                  <label htmlFor="style" className="block text-sm font-medium text-gray-300 mb-2">Style</label>
-                  <select
-                    id="style"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg text-white p-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
-                    value={style}
-                    onChange={(e) => setStyle(e.target.value)}
-                  >
-                    {styles.map(s => <option key={s} value={s} className="capitalize bg-[#0B0F19]">{s}</option>)}
-                  </select>
-                </div>
-              </div>
+  const renderResultsView = () => (
+     <Card className="bg-slate-900/40 backdrop-blur-lg border-slate-700/80 text-white flex flex-col">
+      <CardHeader>
+        <CardTitle className="text-2xl">Your Masterpiece</CardTitle>
+        <CardDescription>Download your image, enhance its quality, or send it to the editor for more detailed changes.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex-grow grid grid-cols-2 gap-4">
+        <Button onClick={handleDownload} variant="secondary">
+            <Download className="w-4 h-4 mr-2" /> Download
+        </Button>
+        <Button onClick={handleUpscale} variant="secondary" disabled={isUpscaling}>
+            {isUpscaling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+            {isUpscaling ? 'Upscaling...' : 'Upscale'}
+        </Button>
+        <Button onClick={() => navigate(Page.EDITOR, generatedImage)} className="col-span-2">
+            <Edit className="w-4 h-4 mr-2" />
+            Follow-up Edit
+        </Button>
+      </CardContent>
+      <CardFooter>
+        <Button onClick={handleStartNew} variant="ghost" className="w-full">
+            Start New Session
+        </Button>
+      </CardFooter>
+    </Card>
+  );
 
-              <Button
-                onClick={handleGenerate}
-                isLoading={isLoading}
-                loadingText={loadingMessage}
-                className="w-full mt-2"
-                size="lg"
-              >
-                Generate Image
-              </Button>
-              {error && <p className="text-red-400 text-sm mt-2 text-center">{error}</p>}
-            </>
-          ) : (
-            <div className="flex flex-col gap-4">
-                <h3 className="text-xl font-bold text-white">Your Masterpiece</h3>
-                <p className="text-gray-300">Download your image, enhance its quality, or send it to the editor for more detailed changes.</p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                    <Button onClick={handleDownload} variant="secondary" disabled={isLoading || isUpscaling}>
-                        <DownloadIcon className="w-5 h-5 mr-2" /> Download
-                    </Button>
-                    <Button 
-                        onClick={handleUpscale} 
-                        variant="secondary" 
-                        className="relative" 
-                        isLoading={isUpscaling} 
-                        loadingText="Upscaling..." 
-                        disabled={isLoading || isUpscaling}
-                    >
-                       <SparklesIcon className="w-5 h-5 mr-2" /> Upscale
-                       <span className="absolute -top-2 -right-2 bg-purple-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">BETA</span>
-                    </Button>
-                    <Button onClick={() => navigate(Page.EDITOR, generatedImage)} className="sm:col-span-2" disabled={isLoading || isUpscaling}>
-                        <EditIcon className="w-5 h-5 mr-2" />
-                        Follow-up Edit
-                    </Button>
-                </div>
-                 <Button onClick={handleStartNew} variant="ghost" className="w-full mt-2" disabled={isLoading || isUpscaling}>
-                    <NewSessionIcon className="w-5 h-5 mr-2" />
-                    Start New Session
-                </Button>
-            </div>
-          )}
-        </Card>
-
-        <Card className="w-full aspect-square overflow-hidden p-2">
+  return (
+    <div className="p-4 sm:p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+        <div>
+          {!generatedImage ? renderGeneratorForm() : renderResultsView()}
+        </div>
+        <Card className="w-full aspect-square overflow-hidden bg-slate-900/40 backdrop-blur-lg border-slate-700/80">
           <div className="w-full h-full rounded-lg flex items-center justify-center bg-black/20 overflow-hidden">
             {isLoading ? (
               <LoadingPlaceholder message={loadingMessage} />
             ) : generatedImage ? (
               <img src={generatedImage.url} alt={prompt || 'Generated image'} className="object-contain w-full h-full" />
             ) : (
-              <div className="text-center text-gray-500 p-4">
-                <ImageIcon className="w-16 h-16 mx-auto mb-4 text-gray-600"/>
-                Your generated image will appear here.
+              <div className="text-center text-gray-500 p-4 flex flex-col items-center justify-center">
+                <FileImage className="w-16 h-16 mx-auto mb-4 text-gray-600"/>
+                <p>Your generated image will appear here.</p>
               </div>
             )}
           </div>
