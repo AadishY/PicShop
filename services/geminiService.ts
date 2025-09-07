@@ -122,10 +122,13 @@ export const generateImage = async (
     }
 
     const mimeType = 'image/png';
+    const [width, height] = aspectRatio.split(':').map(Number);
+    const numericAspectRatio = width / height;
+
     const response = await client.models.generateImages({
       model: models.images,
       prompt: finalPrompt,
-      config: { numberOfImages: 1, outputMimeType: mimeType, aspectRatio },
+      config: { numberOfImages: 1, outputMimeType: mimeType, aspectRatio: numericAspectRatio },
     });
 
     const { image } = response.generatedImages[0];
