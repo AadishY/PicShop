@@ -5,7 +5,7 @@ import { generateImage, generateExamplePrompts } from '../services/geminiService
 import LoadingPlaceholder from './LoadingPlaceholder';
 import LoadingSpinner from './LoadingSpinner';
 import { Button } from './ui';
-import { DownloadIcon, EditIcon, NewSessionIcon } from './Icons';
+import { DownloadIcon, EditIcon, NewSessionIcon, SparklesIcon } from './Icons';
 
 interface ImageGeneratorPageProps {
   navigate: (page: Page, image?: ImageFile) => void;
@@ -72,7 +72,6 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
     <div>
       <h2 className="text-3xl font-bold text-white mb-6">Image Generator</h2>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-        {/* Controls */}
         <div className="flex flex-col gap-6">
           {!generatedImage ? (
             <>
@@ -82,6 +81,7 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
                   id="prompt"
                   rows={4}
                   className="w-full bg-gray-800 border border-gray-600 rounded-md text-white p-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  placeholder="e.g., A cat wearing a spacesuit, sitting on the moon"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                 />
@@ -138,6 +138,7 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
                 className="w-full"
                 size="lg"
               >
+                <SparklesIcon className="w-5 h-5 mr-2" />
                 Generate Image
               </Button>
               {error && <p className="text-red-400 text-sm mt-2 text-center">{error}</p>}
@@ -164,15 +165,16 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
           )}
         </div>
 
-        {/* Image Display */}
         <div className="w-full aspect-square rounded-lg flex items-center justify-center bg-gray-800/50 border border-dashed border-gray-600 overflow-hidden">
           {isLoading ? (
             <LoadingPlaceholder message="Conjuring pixels..." />
           ) : generatedImage ? (
             <img src={generatedImage.url} alt={prompt} className="object-contain w-full h-full" />
           ) : (
-            <div className="text-center text-gray-500 p-4">
-              Your generated image will appear here.
+            <div className="text-center text-gray-500 p-4 flex flex-col items-center justify-center">
+              <SparklesIcon className="w-12 h-12 mb-4 text-gray-600" />
+              <h3 className="font-bold text-lg text-white">Your generated image will appear here</h3>
+              <p className="text-sm">Let your imagination run wild!</p>
             </div>
           )}
         </div>
