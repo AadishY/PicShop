@@ -133,7 +133,7 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
     }
     if (!currentImage) return;
 
-    setLoadingMessage('Applying AI magic...');
+    setLoadingMessage('let aadish cook 🍳');
     setIsLoading(true);
     setError(null);
 

@@ -48,7 +48,7 @@ const App: React.FC = () => {
                       </button>
                   </div>
                    <div className="flex items-center">
-                        <a href="https://github.com/aadish-14/AI-Picshop" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors" title="View on GitHub">
+                        <a href="https://github.com/AadishY/PicShop" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors" title="View on GitHub">
                             <GitHubIcon className="w-6 h-6" />
                         </a>
                     </div>
