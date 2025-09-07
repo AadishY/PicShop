@@ -102,7 +102,6 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
                   id="prompt"
                   rows={4}
                   className="w-full bg-gray-800 border border-gray-600 rounded-md text-white p-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                  placeholder="e.g., A cat wearing a spacesuit, sitting on the moon"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                 />

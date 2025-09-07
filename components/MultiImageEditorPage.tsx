@@ -29,6 +29,8 @@ const MultiImageEditorPage: React.FC<MultiImageEditorPageProps> = ({ navigate })
         const prompts = await generateExamplePrompts('multi-editing');
         setExamplePrompts(prompts);
         setLoadingPrompts(false);
+      } else {
+        setExamplePrompts([]);
       }
     };
     fetchPrompts();
@@ -135,7 +137,13 @@ const MultiImageEditorPage: React.FC<MultiImageEditorPageProps> = ({ navigate })
               {images.length > 0 && (
                 <>
                   <div>
-                    <label htmlFor="prompt" className="block text-sm font-medium text-gray-300 mb-2">Editing Instructions</label>
+                    <div className="flex justify-between items-center mb-2">
+                      <label htmlFor="prompt" className="block text-sm font-medium text-gray-300">Editing Instructions</label>
+                      <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} className="text-xs">
+                        <PlusIcon className="w-4 h-4 mr-1" />
+                        Add More
+                      </Button>
+                    </div>
                     <textarea
                       id="prompt"
                       rows={3}

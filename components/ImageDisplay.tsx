@@ -11,6 +11,7 @@ interface ImageDisplayProps {
   isLoading: boolean;
   loadingMessage: string;
   isComparing: boolean;
+  isCropMode: boolean;
   crop: Crop | undefined;
   setCrop: (crop: Crop | undefined) => void;
   handleImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -19,6 +20,7 @@ interface ImageDisplayProps {
   handleUndo: () => void;
   handleRedo: () => void;
   setIsComparing: (isComparing: boolean) => void;
+  setIsCropMode: (isCropMode: boolean) => void;
   historyIndex: number;
   historyLength: number;
   fileInputRef: React.RefObject<HTMLInputElement>;
@@ -31,6 +33,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
   isLoading,
   loadingMessage,
   isComparing,
+  isCropMode,
   crop,
   setCrop,
   handleImageUpload,
@@ -39,25 +42,34 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
   handleUndo,
   handleRedo,
   setIsComparing,
+  setIsCropMode,
   historyIndex,
   historyLength,
   fileInputRef,
   imgRef,
 }) => {
+  const imageContent = currentImage ? (
+    <img
+      ref={imgRef}
+      src={isComparing && originalImage ? originalImage.url : currentImage.url}
+      alt="Editable"
+      className="object-contain w-full h-full"
+    />
+  ) : null;
+
   return (
     <div className="w-full flex flex-col gap-4">
       <div className="w-full aspect-square rounded-lg flex items-center justify-center bg-gray-800/50 border border-dashed border-gray-600 overflow-hidden relative">
         {isLoading ? (
           <LoadingPlaceholder message={loadingMessage} />
         ) : currentImage ? (
-          <ReactCrop crop={crop} onChange={c => setCrop(c)}>
-            <img
-              ref={imgRef}
-              src={isComparing && originalImage ? originalImage.url : currentImage.url}
-              alt="Editable"
-              className="object-contain w-full h-full"
-            />
-          </ReactCrop>
+          isCropMode ? (
+            <ReactCrop crop={crop} onChange={c => setCrop(c)}>
+              {imageContent}
+            </ReactCrop>
+          ) : (
+            imageContent
+          )
         ) : (
           <div className="text-center text-gray-400 p-4 flex flex-col items-center justify-center">
             <UploadIcon className="w-12 h-12 mb-4 text-gray-500" />
@@ -73,29 +85,38 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
 
       {currentImage && (
         <div className="bg-gray-800/50 rounded-lg p-2 grid grid-cols-2 sm:grid-cols-5 gap-2">
-          <Button
-            variant="secondary"
-            onMouseDown={() => setIsComparing(true)}
-            onMouseUp={() => setIsComparing(false)}
-            onTouchStart={() => setIsComparing(true)}
-            onTouchEnd={() => setIsComparing(false)}
-            disabled={!originalImage || historyLength < 2}
-            title="Hold to compare with original"
-          >
-            <CompareIcon className="w-5 h-5 mr-2" /> Compare
-          </Button>
-          <Button variant="secondary" onClick={handleDownload} disabled={!currentImage}>
-            <DownloadIcon className="w-5 h-5 mr-2" /> Download
-          </Button>
-          <Button variant="secondary" onClick={handleUndo} disabled={historyIndex <= 0}>
-            <UndoIcon className="w-5 h-5 mr-2" /> Undo
-          </Button>
-          <Button variant="secondary" onClick={handleRedo} disabled={historyIndex >= historyLength - 1}>
-            <RedoIcon className="w-5 h-5 mr-2" /> Redo
-          </Button>
-          <Button variant="secondary" onClick={handleCrop} disabled={!crop}>
-            <CropIcon className="w-5 h-5 mr-2" /> Crop
-          </Button>
+          {isCropMode ? (
+            <>
+              <Button variant="secondary" onClick={() => setIsCropMode(false)}>Cancel</Button>
+              <Button onClick={handleCrop} disabled={!crop}>Done</Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                onMouseDown={() => setIsComparing(true)}
+                onMouseUp={() => setIsComparing(false)}
+                onTouchStart={() => setIsComparing(true)}
+                onTouchEnd={() => setIsComparing(false)}
+                disabled={!originalImage || historyLength < 2}
+                title="Hold to compare with original"
+              >
+                <CompareIcon className="w-5 h-5 mr-2" /> Compare
+              </Button>
+              <Button variant="secondary" onClick={handleDownload} disabled={!currentImage}>
+                <DownloadIcon className="w-5 h-5 mr-2" /> Download
+              </Button>
+              <Button variant="secondary" onClick={handleUndo} disabled={historyIndex <= 0}>
+                <UndoIcon className="w-5 h-5 mr-2" /> Undo
+              </Button>
+              <Button variant="secondary" onClick={handleRedo} disabled={historyIndex >= historyLength - 1}>
+                <RedoIcon className="w-5 h-5 mr-2" /> Redo
+              </Button>
+              <Button variant="secondary" onClick={() => setIsCropMode(true)}>
+                <CropIcon className="w-5 h-5 mr-2" /> Crop
+              </Button>
+            </>
+          )}
         </div>
       )}
     </div>

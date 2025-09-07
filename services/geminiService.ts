@@ -1,7 +1,7 @@
 import { GoogleGenAI, GenerateContentResponse, Modality } from "@google/genai";
 import { ImageFile } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
 const models = {
   prompts: 'gemini-2.5-flash',
@@ -35,9 +35,9 @@ export const generateExamplePrompts = async (
         userPrompt = "Give me 4 example prompts for generating images.";
         break;
       case 'editing':
-        systemInstruction = "You are an expert AI photo analyst. Your task is to analyze the provided image and suggest 4 creative and interesting editing ideas. The suggestions should be concise, inspiring, and directly applicable as prompts for an image editing AI. Examples: 'Turn the sky into a swirling galaxy', 'Add a majestic dragon flying in the background', 'Apply a vintage, sepia-toned filter', 'Make it look like a detailed watercolor painting'. Do not use markdown or numbering. Each prompt must be on a new line.";
+        systemInstruction = "You are an expert AI photo analyst. Your task is to analyze the provided image and suggest 4 highly creative and context-aware editing ideas. The suggestions should be directly inspired by the objects, colors, and composition of the image. For example, if you see a forest, suggest 'Add mystical glowing mushrooms to the forest floor'. If you see a portrait, suggest 'Change the subject's eye color to a vibrant, glowing blue'. The suggestions must be concise, inspiring, and directly applicable as prompts for an image editing AI. Do not use markdown or numbering. Each prompt must be on a new line.";
         userPrompt = image
-          ? { parts: [{ inlineData: { data: image.data, mimeType: image.mimeType } }, { text: "Analyze this photo and give me 4 creative editing prompts." }] }
+          ? { parts: [{ inlineData: { data: image.data, mimeType: image.mimeType } }, { text: "Analyze this photo and give me 4 creative editing prompts based on its content." }] }
           : "Give me 4 generic example prompts for editing a photo, like 'make it black and white' or 'change the background to a beach'.";
         break;
       case 'multi-editing':

@@ -3,6 +3,8 @@ import { Button } from './ui';
 import { SparklesIcon, NewSessionIcon } from './Icons';
 import LoadingSpinner from './LoadingSpinner';
 
+import { UploadIcon } from './Icons';
+
 interface EditingControlsProps {
   prompt: string;
   setPrompt: (prompt: string) => void;
@@ -15,6 +17,7 @@ interface EditingControlsProps {
   isLoading: boolean;
   error: string | null;
   handleNewSession: () => void;
+  fileInputRef: React.RefObject<HTMLInputElement>;
 }
 
 const EditingControls: React.FC<EditingControlsProps> = ({
@@ -29,17 +32,23 @@ const EditingControls: React.FC<EditingControlsProps> = ({
   isLoading,
   error,
   handleNewSession,
+  fileInputRef,
 }) => {
   return (
     <div className="flex flex-col gap-6">
       <>
         <div>
-          <label htmlFor="prompt" className="block text-sm font-medium text-gray-300 mb-2">Editing Instructions</label>
+          <div className="flex justify-between items-center mb-2">
+            <label htmlFor="prompt" className="block text-sm font-medium text-gray-300">Editing Instructions</label>
+            <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} className="text-xs">
+              <UploadIcon className="w-4 h-4 mr-1" />
+              Upload New
+            </Button>
+          </div>
           <textarea
             id="prompt"
             rows={3}
             className="w-full bg-gray-800 border border-gray-600 rounded-md text-white p-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-            placeholder="e.g., Change the background to a sunny beach"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
           />

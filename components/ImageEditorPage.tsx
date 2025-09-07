@@ -70,6 +70,7 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
   const [examplePrompts, setExamplePrompts] = useState<string[]>([]);
   const [loadingPrompts, setLoadingPrompts] = useState(false);
   const [isComparing, setIsComparing] = useState(false);
+  const [isCropMode, setIsCropMode] = useState(false);
   const [crop, setCrop] = useState<Crop>();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -183,7 +184,8 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
       setError((err as Error).message || 'An error occurred during cropping.');
     } finally {
       setIsLoading(false);
-      setCrop(undefined); // Reset crop state
+      setCrop(undefined);
+      setIsCropMode(false);
     }
   };
 
@@ -234,6 +236,7 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
           isLoading={isLoading}
           loadingMessage={loadingMessage}
           isComparing={isComparing}
+          isCropMode={isCropMode}
           crop={crop}
           setCrop={setCrop}
           handleImageUpload={handleImageUpload}
@@ -242,6 +245,7 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
           handleUndo={handleUndo}
           handleRedo={handleRedo}
           setIsComparing={setIsComparing}
+          setIsCropMode={setIsCropMode}
           historyIndex={historyIndex}
           historyLength={history.length}
           fileInputRef={fileInputRef}
@@ -261,6 +265,7 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
             isLoading={isLoading}
             error={error}
             handleNewSession={handleNewSession}
+            fileInputRef={fileInputRef}
           />
         ) : (
           <div className="text-center text-gray-400 p-4 h-full flex flex-col items-center justify-center bg-gray-800/50 rounded-lg">
