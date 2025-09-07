@@ -7,6 +7,21 @@ import ImageEditorPage from './components/ImageEditorPage';
 import MultiImageEditorPage from './components/MultiImageEditorPage';
 import { GitHubIcon } from './components/Icons';
 
+const ApiKeyError: React.FC = () => (
+  <div className="bg-red-900/50 border border-red-400 text-red-200 px-4 py-3 rounded-lg relative max-w-2xl mx-auto mt-10 text-center shadow-lg">
+    <strong className="font-bold block mb-2">Configuration Error</strong>
+    <span className="block sm:inline">
+      Your Gemini API key is not configured. Please create a <code>.env.local</code> file in the root of the project and add the following line:
+    </span>
+    <pre className="bg-gray-900/50 p-2 rounded-md mt-4 text-left font-mono text-sm whitespace-pre-wrap">
+      VITE_GEMINI_API_KEY=YOUR_API_KEY
+    </pre>
+    <p className="mt-4">
+      You can get a free API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="font-bold underline hover:text-white">Google AI Studio</a>.
+    </p>
+  </div>
+);
+
 export enum Page {
   HOME = 'HOME',
   GENERATOR = 'GENERATOR',
@@ -24,6 +39,9 @@ const App: React.FC = () => {
   };
 
   const renderPage = () => {
+    if (!import.meta.env.VITE_GEMINI_API_KEY) {
+      return <ApiKeyError />;
+    }
     switch (currentPage) {
       case Page.GENERATOR:
         return <ImageGeneratorPage navigate={navigate} />;

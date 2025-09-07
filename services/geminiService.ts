@@ -1,7 +1,18 @@
 import { GoogleGenAI, GenerateContentResponse, Modality } from "@google/genai";
 import { ImageFile } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+let ai: GoogleGenAI | null = null;
+
+const getClient = () => {
+  if (!ai) {
+    if (import.meta.env.VITE_GEMINI_API_KEY) {
+      ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+    } else {
+      console.error("API key is missing.");
+    }
+  }
+  return ai;
+}
 
 const models = {
   prompts: 'gemini-2.5-flash',
@@ -25,6 +36,16 @@ export const generateExamplePrompts = async (
   context: 'generation' | 'editing' | 'multi-editing',
   image?: { data: string; mimeType: string }
 ): Promise<string[]> => {
+  const client = getClient();
+  if (!client) {
+    return Promise.resolve([
+      "API Key not configured.",
+      "Please set up your API key in .env.local",
+      "See example.env for details.",
+      "Get a key from Google AI Studio."
+    ]);
+  }
+
   try {
     let systemInstruction = '';
     let userPrompt: any = '';
@@ -46,7 +67,7 @@ export const generateExamplePrompts = async (
         break;
     }
 
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: models.prompts,
       contents: userPrompt,
       config: { systemInstruction, temperature: 1 },
@@ -72,11 +93,14 @@ export const generateExamplePrompts = async (
  * @returns A promise that resolves to the generated ImageFile.
  */
 export const generateImage = async (prompt: string, aspectRatio: string, style: string): Promise<ImageFile> => {
+  const client = getClient();
+  if (!client) return handleApiError(new Error("API Client not initialized"), 'image generation');
+
   try {
     const mimeType = 'image/png';
     const finalPrompt = style === 'none' ? prompt : `${prompt}, in the style of ${style}`;
 
-    const response = await ai.models.generateImages({
+    const response = await client.models.generateImages({
       model: models.images,
       prompt: finalPrompt,
       config: { numberOfImages: 1, outputMimeType: mimeType, aspectRatio },
@@ -101,6 +125,9 @@ export const editImage = async (
   image: { data: string; mimeType: string },
   mask: { data: string; mimeType: string } | null = null
 ): Promise<{ text?: string; image?: ImageFile }> => {
+  const client = getClient();
+  if (!client) return handleApiError(new Error("API Client not initialized"), 'image editing');
+
   try {
     const parts: any[] = [{ inlineData: { data: image.data, mimeType: image.mimeType } }];
     let finalPrompt = prompt;
@@ -112,7 +139,7 @@ export const editImage = async (
     
     parts.push({ text: finalPrompt });
 
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: models.vision,
       contents: { parts },
       config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
@@ -143,13 +170,16 @@ export const editMultipleImages = async (
   prompt: string,
   images: { data: string; mimeType: string }[]
 ): Promise<{ text?: string; image?: ImageFile }> => {
+  const client = getClient();
+  if (!client) return handleApiError(new Error("API Client not initialized"), 'multiple image editing');
+
   try {
     const parts = [
       ...images.map(image => ({ inlineData: { data: image.data, mimeType: image.mimeType } })),
       { text: prompt },
     ];
 
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: models.vision,
       contents: { parts },
       config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
