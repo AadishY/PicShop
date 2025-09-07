@@ -1,4 +1,4 @@
-// Fix: Populate file with necessary type definitions.
+// Contains type definitions used throughout the application.
 
 export interface ImageFile {
   file?: File;

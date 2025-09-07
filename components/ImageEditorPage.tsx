@@ -1,56 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { type Crop } from 'react-image-crop';
-import 'react-image-crop/dist/ReactCrop.css';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ImageFile } from '../types';
 import { Page } from '../App';
-import { editImage, generateExamplePrompts } from '../services/geminiService';
-import ImageDisplay from './ImageDisplay';
-import EditingControls from './EditingControls';
-import { EditIcon } from './Icons';
-
-const cropImage = (
-  image: HTMLImageElement,
-  imageFile: ImageFile,
-  crop: Crop
-): Promise<ImageFile> => {
-  return new Promise((resolve, reject) => {
-    const canvas = document.createElement('canvas');
-    const scaleX = image.naturalWidth / image.width;
-    const scaleY = image.naturalHeight / image.height;
-
-    canvas.width = crop.width * scaleX;
-    canvas.height = crop.height * scaleY;
-
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx) {
-      return reject(new Error('Could not get canvas context'));
-    }
-
-    ctx.drawImage(
-      image,
-      crop.x * scaleX,
-      crop.y * scaleY,
-      crop.width * scaleX,
-      crop.height * scaleY,
-      0,
-      0,
-      crop.width * scaleX,
-      crop.height * scaleY
-    );
-
-    const newDataUrl = canvas.toDataURL(imageFile.mimeType);
-    const base64String = newDataUrl.split(',')[1];
-
-    const newImage: ImageFile = {
-      url: newDataUrl,
-      data: base64String,
-      mimeType: imageFile.mimeType,
-    };
-
-    resolve(newImage);
-  });
-};
+import { editImage, upscaleImage, generateContextualEditingPrompts } from '../services/geminiService';
+import { Button, Card } from './ui';
+import { UploadIcon, DownloadIcon, NewSessionIcon, ImageIcon, RefreshIcon, UndoIcon, RedoIcon, SparklesIcon, CompareIcon } from './Icons';
+import LoadingPlaceholder from './LoadingPlaceholder';
+import LoadingSpinner from './LoadingSpinner';
 
 interface ImageEditorPageProps {
   navigate: (page: Page, image?: ImageFile) => void;
@@ -58,46 +13,54 @@ interface ImageEditorPageProps {
 }
 
 const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImage }) => {
-  const [prompt, setPrompt] = useState('');
-  const [style, setStyle] = useState('none');
   const [history, setHistory] = useState<ImageFile[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const [originalImage, setOriginalImage] = useState<ImageFile | null>(null);
+  const [historyIndex, setHistoryIndex] = useState(0);
 
+  const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState('');
+  const [isUpscaling, setIsUpscaling] = useState(false);
+  const [isComparing, setIsComparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const [examplePrompts, setExamplePrompts] = useState<string[]>([]);
   const [loadingPrompts, setLoadingPrompts] = useState(false);
-  const [isComparing, setIsComparing] = useState(false);
-  const [isCropMode, setIsCropMode] = useState(false);
-  const [crop, setCrop] = useState<Crop>();
-  const [referenceImages, setReferenceImages] = useState<ImageFile[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
-  const referenceFileInputRef = useRef<HTMLInputElement>(null);
-  const currentImage = history[historyIndex] ?? null;
 
+  const currentImage = history[historyIndex];
+
+  // Initialize with passed image or clear history
   useEffect(() => {
     if (initialImage) {
       setHistory([initialImage]);
       setHistoryIndex(0);
-      setOriginalImage(initialImage);
+    } else {
+      setHistory([]);
+      setHistoryIndex(0);
     }
   }, [initialImage]);
-  
-  useEffect(() => {
-    const fetchPrompts = async () => {
-      if (currentImage) {
-        setLoadingPrompts(true);
-        const prompts = await generateExamplePrompts('editing', currentImage);
+
+  const fetchPrompts = useCallback(async () => {
+    if (currentImage) {
+      setLoadingPrompts(true);
+      setError(null);
+      try {
+        const prompts = await generateContextualEditingPrompts(currentImage);
         setExamplePrompts(prompts);
+      } catch (err) {
+        setError("Could not load suggestions.");
+      } finally {
         setLoadingPrompts(false);
       }
-    };
-    fetchPrompts();
+    }
   }, [currentImage]);
+
+  useEffect(() => {
+    if (currentImage) {
+      fetchPrompts();
+    }
+  }, [fetchPrompts, currentImage]);
+
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -105,7 +68,7 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = (reader.result as string).split(',')[1];
-        const newImage = {
+        const newImage: ImageFile = {
           file,
           url: URL.createObjectURL(file),
           data: base64String,
@@ -113,173 +76,177 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
         };
         setHistory([newImage]);
         setHistoryIndex(0);
-        setOriginalImage(newImage);
         setError(null);
         setPrompt('');
       };
       reader.readAsDataURL(file);
     }
   };
-  
-  const loadingPhases = [
-    'Let Aadish Cook 🍳...',
-    'Preheating the AI oven...',
-    'Mixing the pixels...',
-    'Adding a dash of magic...',
-    'Almost there...',
-  ];
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isLoading) {
-      let phase = 0;
-      setLoadingMessage(loadingPhases[phase]);
-      interval = setInterval(() => {
-        phase = (phase + 1) % loadingPhases.length;
-        setLoadingMessage(loadingPhases[phase]);
-      }, 2000);
-    }
-    return () => clearInterval(interval);
-  }, [isLoading]);
 
   const handleEdit = async () => {
-    if (!prompt.trim() && style === 'none') {
-      setError('Please enter an editing instruction or select a style.');
+    if (!currentImage || !prompt.trim()) {
+      setError('Please enter an editing instruction.');
       return;
     }
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const editedImage = await editImage(currentImage, prompt);
+      const newHistory = history.slice(0, historyIndex + 1);
+      setHistory([...newHistory, editedImage]);
+      setHistoryIndex(newHistory.length);
+      setPrompt('');
+    } catch (err) {
+       setError((err as Error).message || 'An unknown error occurred.');
+    } finally {
+       setIsLoading(false);
+    }
+  };
+
+  const handleUpscale = async () => {
     if (!currentImage) return;
-
-    setIsLoading(true);
+    setIsUpscaling(true);
     setError(null);
-
     try {
-      const fullPrompt = style === 'none' ? prompt : `${prompt}, ${style}`;
-      const result = await editImage(fullPrompt, currentImage, null, referenceImages);
-      if (result.image) {
-        const newHistory = [...history.slice(0, historyIndex + 1), result.image];
-        setHistory(newHistory);
-        setHistoryIndex(newHistory.length - 1);
-        setPrompt('');
-        setReferenceImages([]);
-      } else {
-        setError("The AI didn't return an image. Try a different prompt.");
-      }
+        const upscaled = await upscaleImage(currentImage);
+        const newHistory = history.slice(0, historyIndex + 1);
+        setHistory([...newHistory, upscaled]);
+        setHistoryIndex(newHistory.length);
     } catch (err) {
-      setError((err as Error).message || 'An unknown error occurred.');
+        setError((err as Error).message || 'An unknown error occurred during upscaling.');
     } finally {
-      setIsLoading(false);
+        setIsUpscaling(false);
     }
   };
 
-  const handleCrop = async () => {
-    if (!currentImage || !crop || !imgRef.current) return;
-
-    setLoadingMessage('Cropping image...');
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const croppedImage = await cropImage(imgRef.current, currentImage, crop);
-      const newHistory = [...history.slice(0, historyIndex + 1), croppedImage];
-      setHistory(newHistory);
-      setHistoryIndex(newHistory.length - 1);
-    } catch (err) {
-      setError((err as Error).message || 'An error occurred during cropping.');
-    } finally {
-      setIsLoading(false);
-      setCrop(undefined);
-      setIsCropMode(false);
-    }
-  };
-
-  const handleUndo = () => historyIndex > 0 && setHistoryIndex(historyIndex - 1);
-  const handleRedo = () => historyIndex < history.length - 1 && setHistoryIndex(historyIndex + 1);
+  const undo = () => historyIndex > 0 && setHistoryIndex(historyIndex - 1);
+  const redo = () => historyIndex < history.length - 1 && setHistoryIndex(historyIndex + 1);
 
   const handleDownload = () => {
     if (!currentImage) return;
     const link = document.createElement('a');
     link.href = currentImage.url;
-    link.download = 'edited-image.png';
+    link.download = `edited-image.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
-  
-  const handleNewSession = () => {
+
+  const handleStartNew = () => {
     setHistory([]);
-    setHistoryIndex(-1);
-    setOriginalImage(null);
+    setHistoryIndex(0);
     setPrompt('');
     setError(null);
-    if(fileInputRef.current) fileInputRef.current.value = "";
-  }
+    // This allows re-uploading the same file
+    if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+    }
+  };
+  
+  const renderUploadView = () => (
+    <div className="flex flex-col items-center justify-center h-[50vh]">
+        <Card className="p-8 sm:p-12 text-center">
+            <ImageIcon className="w-16 h-16 mx-auto text-gray-600 mb-4"/>
+            <h2 className="text-2xl font-bold text-white mb-2">Image Editor</h2>
+            <p className="text-gray-400 mb-6">Upload a photo to start editing.</p>
+            <Button onClick={() => fileInputRef.current?.click()}>
+                <UploadIcon className="w-5 h-5 mr-2"/>
+                Upload Image
+            </Button>
+            <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+        </Card>
+    </div>
+  );
 
-  const styles = [
-    { value: 'none', label: 'Default' },
-    { value: 'in a vibrant, detailed anime style', label: 'Anime' },
-    { value: 'in a black and white manga style with screen tones', label: 'Manga' },
-    { value: 'in a Disney Pixar animation style', label: 'Disney / Pixar' },
-    { value: 'in a Marvel comic book style', label: 'Marvel Comic' },
-    { value: 'as a 1980s photo, including fashion and aesthetics from the era', label: '1980s Photo' },
-    { value: 'as an 1800s daguerreotype, including period clothing and vintage tones', label: '1800s Photo' },
-    { value: 'with a futuristic sci-fi aesthetic', label: 'Futuristic' },
-    { value: 'as an aged and weathered photo', label: 'Aged/Vintage' },
-    { value: 'as a watercolor painting', label: 'Watercolor' },
-    { value: 'as a charcoal sketch', label: 'Sketch' },
-    { value: 'in a pop art style', label: 'Pop Art' }
-  ];
+  if (!currentImage) {
+    return renderUploadView();
+  }
 
   return (
     <div>
       <h2 className="text-3xl font-bold text-white mb-6">Image Editor</h2>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-        <ImageDisplay
-          currentImage={currentImage}
-          originalImage={originalImage}
-          isLoading={isLoading}
-          loadingMessage={loadingMessage}
-          isComparing={isComparing}
-          isCropMode={isCropMode}
-          crop={crop}
-          setCrop={setCrop}
-          handleImageUpload={handleImageUpload}
-          handleCrop={handleCrop}
-          handleDownload={handleDownload}
-          handleUndo={handleUndo}
-          handleRedo={handleRedo}
-          setIsComparing={setIsComparing}
-          setIsCropMode={setIsCropMode}
-          historyIndex={historyIndex}
-          historyLength={history.length}
-          fileInputRef={fileInputRef}
-          imgRef={imgRef}
-        />
-
-        {currentImage ? (
-          <EditingControls
-            prompt={prompt}
-            setPrompt={setPrompt}
-            style={style}
-            setStyle={setStyle}
-            styles={styles}
-            examplePrompts={examplePrompts}
-            loadingPrompts={loadingPrompts}
-            handleEdit={handleEdit}
-            isLoading={isLoading}
-            error={error}
-            handleNewSession={handleNewSession}
-            fileInputRef={fileInputRef}
-            referenceImages={referenceImages}
-            setReferenceImages={setReferenceImages}
-            referenceFileInputRef={referenceFileInputRef}
-          />
-        ) : (
-          <div className="text-center text-gray-400 p-4 h-full flex flex-col items-center justify-center bg-gray-800/50 rounded-lg">
-            <EditIcon className="w-12 h-12 mb-4 text-gray-500" />
-            <h3 className="font-bold text-lg text-white mb-2">Ready to edit?</h3>
-            <p className="text-sm">Upload an image to get started. Your editing controls will appear here.</p>
+        <Card className="p-6 sm:p-8 flex flex-col gap-6">
+           <div>
+            <label htmlFor="prompt" className="block text-sm font-medium text-gray-300 mb-2">Editing Instruction</label>
+            <textarea
+              id="prompt"
+              rows={3}
+              className="w-full bg-white/5 border border-white/10 rounded-lg text-white p-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition placeholder:text-gray-500"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="e.g., Change the background to a futuristic city"
+              disabled={isLoading || isUpscaling}
+            />
           </div>
-        )}
+
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-sm font-medium text-gray-400">Need inspiration?</h4>
+              <Button variant="ghost" size="sm" onClick={fetchPrompts} disabled={loadingPrompts || isLoading || isUpscaling}>
+                  <RefreshIcon className={`w-4 h-4 mr-2 ${loadingPrompts ? 'animate-spin' : ''}`}/> Get Ideas
+              </Button>
+            </div>
+            {loadingPrompts ? (
+              <div className="flex items-center gap-2 text-sm text-gray-400"><LoadingSpinner className="w-4 h-4" /><span>Loading suggestions...</span></div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {examplePrompts.map((p, i) => (
+                  <button key={i} onClick={() => setPrompt(p)} className="text-sm bg-white/10 hover:bg-white/20 text-gray-200 px-3 py-1.5 rounded-full transition-colors disabled:opacity-50" disabled={isLoading || isUpscaling}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Button onClick={handleEdit} isLoading={isLoading} loadingText="Applying Edit..." className="w-full mt-2" size="lg" disabled={!prompt.trim() || isUpscaling}>
+            Apply Edit
+          </Button>
+          {error && <p className="text-red-400 text-sm mt-2 text-center">{error}</p>}
+          
+          <div className="border-t border-white/10 pt-6 flex flex-col gap-4">
+            <h3 className="text-lg font-bold text-white">Tools</h3>
+            <div className="grid grid-cols-2 gap-4">
+                <Button variant="secondary" onClick={undo} disabled={historyIndex === 0 || isLoading || isUpscaling}><UndoIcon className="w-5 h-5 mr-2" /> Undo</Button>
+                <Button variant="secondary" onClick={redo} disabled={historyIndex === history.length - 1 || isLoading || isUpscaling}><RedoIcon className="w-5 h-5 mr-2" /> Redo</Button>
+                <Button variant="secondary" onClick={handleDownload} disabled={isLoading || isUpscaling}><DownloadIcon className="w-5 h-5 mr-2" /> Download</Button>
+                <Button onClick={handleUpscale} variant="secondary" className="relative" isLoading={isUpscaling} loadingText="Upscaling..." disabled={isLoading || isUpscaling}>
+                    <SparklesIcon className="w-5 h-5 mr-2" /> Upscale
+                    <span className="absolute -top-2 -right-2 bg-purple-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">BETA</span>
+                </Button>
+            </div>
+             <Button onClick={handleStartNew} variant="ghost" className="w-full mt-4" disabled={isLoading || isUpscaling}>
+                <NewSessionIcon className="w-5 h-5 mr-2" /> New Session
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="w-full aspect-square overflow-hidden p-2 relative">
+           {history.length > 1 && (
+             <Button 
+                variant="secondary"
+                size="sm"
+                className="absolute top-4 right-4 z-10 backdrop-blur-sm"
+                onMouseDown={() => setIsComparing(true)}
+                onMouseUp={() => setIsComparing(false)}
+                onTouchStart={() => setIsComparing(true)}
+                onTouchEnd={() => setIsComparing(false)}
+                disabled={isLoading || isUpscaling}
+                title="Hold to Compare with original"
+            >
+               <CompareIcon className="w-4 h-4 mr-2" /> Compare
+            </Button>
+           )}
+          <div className="w-full h-full rounded-lg flex items-center justify-center bg-black/20 overflow-hidden">
+            {isLoading ? (
+              <LoadingPlaceholder message="Editing in progress..." />
+            ) : (
+                <img src={isComparing ? history[0].url : currentImage.url} alt={isComparing ? "Original image" : "Edited image"} className="object-contain w-full h-full" />
+            )}
+          </div>
+        </Card>
       </div>
     </div>
   );

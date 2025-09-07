@@ -1,238 +1,262 @@
-import { GoogleGenAI, GenerateContentResponse, Modality } from "@google/genai";
-import { ImageFile } from "../types";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { ImageFile } from '../types';
 
-let ai: GoogleGenAI | null = null;
-
-const getClient = () => {
-  if (!ai) {
-    if (import.meta.env.VITE_GEMINI_API_KEY) {
-      ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-    } else {
-      console.error("API key is missing.");
-    }
-  }
-  return ai;
-}
-
-const models = {
-  prompts: 'gemini-2.5-flash',
-  images: 'imagen-3.0-generate-002',
-  vision: 'gemini-2.5-flash-image-preview',
-};
-
-const handleApiError = (error: unknown, context: string): never => {
-  console.error(`Error in ${context}:`, error);
-  const errorCode = (error as any)?.code || 'UNKNOWN';
-  throw new Error(`AI service error in ${context} (code: ${errorCode}). Please try again.`);
-};
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
 /**
- * Generates a list of example prompts for a given context.
- * @param context The context for which to generate prompts.
- * @param image Optional image data for context-specific prompts.
- * @returns A promise that resolves to an array of prompt strings.
- */
-export const generateExamplePrompts = async (
-  context: 'generation' | 'editing' | 'multi-editing',
-  image?: { data: string; mimeType: string }
-): Promise<string[]> => {
-  const client = getClient();
-  if (!client) {
-    return Promise.resolve([
-      "API Key not configured.",
-      "Please set up your API key in .env.local",
-      "See example.env for details.",
-      "Get a key from Google AI Studio."
-    ]);
-  }
-
-  try {
-    let systemInstruction = '';
-    let userPrompt: any = '';
-
-    switch (context) {
-      case 'generation':
-        systemInstruction = "You are an AI assistant that generates spectacular, imaginative, and diverse prompts for an image generation model. Provide 4 concise, interesting, and visually rich prompts. Think outside the box. Examples: 'A bioluminescent jellyfish floating through a nebula', 'A steampunk city built on the back of a giant turtle', 'An art deco lobby of a hotel on Mars'. Do not use markdown or numbering. Each prompt must be on a new line.";
-        userPrompt = "Give me 4 spectacular and creative example prompts for generating images.";
-        break;
-      case 'editing':
-        systemInstruction = "You are an expert AI photo analyst. Your task is to analyze the provided image and suggest 4 highly creative and context-aware editing ideas. The suggestions should be directly inspired by the objects, colors, and composition of the image, but push the boundaries of creativity. For example, if you see a forest, suggest 'Transform the forest into a surreal, alien jungle with glowing plants'. If you see a portrait, suggest 'Reimagine the person as a powerful elemental being made of fire'. The suggestions must be concise, inspiring, and directly applicable as prompts for an image editing AI. Do not use markdown or numbering. Each prompt must be on a new line.";
-        userPrompt = image
-          ? { parts: [{ inlineData: { data: image.data, mimeType: image.mimeType } }, { text: "Analyze this photo and give me 4 creative editing prompts based on its content." }] }
-          : "Give me 4 generic example prompts for editing a photo, like 'make it black and white' or 'change the background to a beach'.";
-        break;
-      case 'multi-editing':
-        systemInstruction = "You are an AI assistant that generates creative prompts for editing multiple images at once. The prompts should suggest ambitious and imaginative actions that can be applied consistently across a set of images. Provide 4 concise examples. Examples: 'Merge all images into a single, seamless, panoramic dreamscape', 'Create a movie poster where each image is a different scene', 'Apply a consistent, vibrant, pop-art style to all images', 'Arrange them into a surreal, floating photo gallery in the clouds'. Do not use markdown or numbering. Each prompt must be on a new line.";
-        userPrompt = "Give me 4 creative example prompts for editing a batch of photos.";
-        break;
-    }
-
-    const response = await client.models.generateContent({
-      model: models.prompts,
-      contents: userPrompt,
-      config: { systemInstruction, temperature: 1 },
-    });
-
-    return response.text.trim().split('\n').filter(p => p.trim() !== '');
-  } catch (error) {
-    console.error("Error generating example prompts:", error);
-    return [
-      "A cyberpunk cityscape at night, neon lights reflecting on wet streets.",
-      "Make the sky look like a galaxy.",
-      "Create a photo collage from the images.",
-      "A surreal painting of a clock melting on a tree branch."
-    ];
-  }
-};
-
-/**
- * Generates an image based on a prompt, aspect ratio, and style.
- * @param prompt The text prompt for image generation.
- * @param aspectRatio The desired aspect ratio of the image.
+ * Generates an image based on a text prompt.
+ * @param prompt The user's text description.
+ * @param aspectRatio The desired aspect ratio for the image.
  * @param style The artistic style to apply.
  * @returns A promise that resolves to the generated ImageFile.
  */
-export const generateImage = async (
-  prompt: string,
-  aspectRatio: string,
-  style: string,
-  referenceImages: { data: string; mimeType: string }[] = []
-): Promise<ImageFile> => {
-  const client = getClient();
-  if (!client) return handleApiError(new Error("API Client not initialized"), 'image generation');
+export const generateImage = async (prompt: string, aspectRatio: string, style: string): Promise<ImageFile> => {
+  let fullPrompt = prompt;
+  const styleEnhancers: { [key: string]: string } = {
+    'photorealistic': 'photorealistic, hyper-detailed, 8k, high quality',
+    'cinematic': 'cinematic lighting, dramatic atmosphere, epic, high quality',
+    'anime': 'anime style, vibrant, studio quality',
+    'watercolor': 'watercolor painting, soft wash, delicate',
+    'fantasy': 'epic fantasy art, detailed, mythical, enchanting',
+    'surrealism': 'surrealist painting, dreamlike, bizarre, imaginative',
+    'steampunk': 'steampunk style, intricate gears and cogs, victorian futurism',
+    'minimalist': 'minimalist design, clean lines, simple, elegant',
+  };
+
+  if (style !== 'none' && styleEnhancers[style]) {
+    fullPrompt = `${prompt}, ${styleEnhancers[style]}`;
+  }
 
   try {
-    let finalPrompt = style === 'none' ? prompt : `${prompt}, in the style of ${style}`;
-
-    // If there are reference images, use the vision model to generate a new prompt
-    if (referenceImages.length > 0) {
-      const systemInstruction = "You are an AI assistant that combines a user's text prompt with reference images to create a new, highly detailed prompt for an image generation model. Describe the scene, style, and content of the reference images and merge it with the user's text prompt to create a single, cohesive, and descriptive new prompt. The new prompt should be a single paragraph.";
-
-      const parts: any[] = [
-        { text: "User's prompt: " + prompt },
-        ...referenceImages.map(img => ({ inlineData: { data: img.data, mimeType: img.mimeType } }))
-      ];
-
-      const response = await client.models.generateContent({
-        model: models.vision,
-        contents: { parts },
-        config: { systemInstruction, temperature: 0.7 },
-      });
-      finalPrompt = response.text;
-    }
-
-    const mimeType = 'image/png';
-    const [width, height] = aspectRatio.split(':').map(Number);
-    const numericAspectRatio = width / height;
-
-    const response = await client.models.generateImages({
-      model: models.images,
-      prompt: finalPrompt,
-      config: { numberOfImages: 1, outputMimeType: mimeType, aspectRatio: numericAspectRatio },
+    const response = await ai.models.generateImages({
+        model: 'imagen-4.0-generate-001',
+        prompt: fullPrompt,
+        config: {
+          numberOfImages: 1,
+          outputMimeType: 'image/png',
+          aspectRatio: aspectRatio as "1:1" | "16:9" | "9:16" | "4:3" | "3:4",
+        },
     });
 
-    const { image } = response.generatedImages[0];
-    return { data: image.imageBytes, mimeType, url: `data:${mimeType};base64,${image.imageBytes}` };
+    if (!response.generatedImages || response.generatedImages.length === 0) {
+      throw new Error('Image generation failed: No image returned from API.');
+    }
+
+    const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
+    const url = `data:image/png;base64,${base64ImageBytes}`;
+
+    return {
+      url,
+      data: base64ImageBytes,
+      mimeType: 'image/png',
+    };
   } catch (error) {
-    handleApiError(error, 'image generation');
+    console.error("Error generating image:", error);
+    throw new Error("Failed to generate image. Please check the prompt or try again later.");
   }
 };
 
 /**
- * Edits an image based on a prompt and an optional mask.
+ * Edits a single image based on a text prompt.
+ * @param image The image to be edited.
  * @param prompt The editing instruction.
- * @param image The image to edit.
- * @param mask An optional mask to specify the editing area.
- * @returns A promise that resolves to an object containing the edited image and/or text.
+ * @returns A promise that resolves to the edited ImageFile.
  */
-export const editImage = async (
-  prompt: string,
-  image: { data: string; mimeType: string },
-  mask: { data: string; mimeType: string } | null = null,
-  referenceImages: { data: string; mimeType: string }[] = []
-): Promise<{ text?: string; image?: ImageFile }> => {
-  const client = getClient();
-  if (!client) return handleApiError(new Error("API Client not initialized"), 'image editing');
-
+export const editImage = async (image: ImageFile, prompt: string): Promise<ImageFile> => {
   try {
-    const parts: any[] = [
-      { text: "The user wants to edit the following image:"},
-      { inlineData: { data: image.data, mimeType: image.mimeType } },
-    ];
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image-preview',
+      contents: {
+        parts: [
+          { inlineData: { data: image.data, mimeType: image.mimeType } },
+          { text: prompt },
+        ],
+      },
+      config: {
+          responseModalities: [Modality.IMAGE, Modality.TEXT],
+          systemInstruction: "You are a world-class AI photo editor. The user provides an image and a text prompt. Your primary goal is to execute the user's instruction precisely while preserving the original image's realism and style, unless explicitly asked to change it. Focus on photorealistic modifications. Strictly output only the edited image in the required modality. Do not add any conversational text, descriptions, or apologies in the text part of the response. If you cannot fulfill the request, you may explain why in a short text response instead of providing an image."
+      },
+    });
 
-    if (referenceImages.length > 0) {
-      parts.push({ text: "Use these additional images as a reference for style, content, or context:"});
-      referenceImages.forEach(refImg => {
-        parts.push({ inlineData: { data: refImg.data, mimeType: refImg.mimeType } });
-      });
-    }
+    const editedImagePart = response.candidates?.[0]?.content?.parts?.find(part => part.inlineData);
 
-    let finalPrompt = prompt;
-
-    if (mask) {
-      parts.push({ text: "The user has provided a mask. Apply the edit request ONLY to the white area of the mask. The black area must remain untouched."});
-      parts.push({ inlineData: { data: mask.data, mimeType: mask.mimeType } });
+    if (!editedImagePart || !editedImagePart.inlineData) {
+      const textResponse = response.text;
+      const errorMessage = textResponse ? `Editing failed: ${textResponse}` : 'Editing failed: No image returned from API.';
+      throw new Error(errorMessage);
     }
     
-    parts.push({ text: `Here is the user's editing instruction: "${finalPrompt}"` });
+    const base64ImageBytes: string = editedImagePart.inlineData.data;
+    const mimeType = editedImagePart.inlineData.mimeType;
+    const url = `data:${mimeType};base64,${base64ImageBytes}`;
 
-    const response = await client.models.generateContent({
-      model: models.vision,
-      contents: { parts },
-      config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
-    });
-
-    const result: { text?: string; image?: ImageFile } = {};
-    for (const part of response.candidates[0].content.parts) {
-      if (part.text) {
-        result.text = part.text;
-      } else if (part.inlineData) {
-        const { mimeType, data } = part.inlineData;
-        result.image = { data, mimeType, url: `data:${mimeType};base64,${data}` };
-      }
-    }
-    return result;
+    return { url, data: base64ImageBytes, mimeType };
   } catch (error) {
-    handleApiError(error, 'image editing');
+    console.error("Error editing image:", error);
+    if (error instanceof Error) throw error;
+    throw new Error("Failed to edit image. The model might not be able to fulfill this request.");
   }
 };
 
 /**
- * Edits multiple images based on a single prompt.
- * @param prompt The editing instruction to apply to all images.
- * @param images An array of images to edit.
- * @returns A promise that resolves to an object containing the edited image and/or text.
+ * Upscales an image to a higher resolution and enhances details.
+ * @param image The image to be upscaled.
+ * @returns A promise that resolves to the upscaled ImageFile.
  */
-export const editMultipleImages = async (
-  prompt: string,
-  images: { data: string; mimeType: string }[]
-): Promise<{ text?: string; image?: ImageFile }> => {
-  const client = getClient();
-  if (!client) return handleApiError(new Error("API Client not initialized"), 'multiple image editing');
-
+export const upscaleImage = async (image: ImageFile): Promise<ImageFile> => {
   try {
-    const parts = [
-      ...images.map(image => ({ inlineData: { data: image.data, mimeType: image.mimeType } })),
-      { text: prompt },
-    ];
-
-    const response = await client.models.generateContent({
-      model: models.vision,
-      contents: { parts },
-      config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image-preview',
+      contents: {
+        parts: [
+          { inlineData: { data: image.data, mimeType: image.mimeType } },
+          { text: "Upscale this image, enhancing its resolution and sharpening details. Do not change the content or style." },
+        ],
+      },
+      config: {
+          responseModalities: [Modality.IMAGE, Modality.TEXT],
+          systemInstruction: "You are an AI image upscaling and enhancement specialist. The user provides an image. Your task is to increase its resolution, sharpen details, and improve overall clarity and quality. You must preserve the original image's content, composition, and artistic style perfectly. Do not add, remove, or alter any elements. Strictly output only the enhanced image in the required modality. Do not include any text in the response."
+      },
     });
 
-    const result: { text?: string; image?: ImageFile } = {};
-    for (const part of response.candidates[0].content.parts) {
-      if (part.text) {
-        result.text = part.text;
-      } else if (part.inlineData) {
-        const { mimeType, data } = part.inlineData;
-        result.image = { data, mimeType, url: `data:${mimeType};base64,${data}` };
-      }
+    const editedImagePart = response.candidates?.[0]?.content?.parts?.find(part => part.inlineData);
+
+    if (!editedImagePart || !editedImagePart.inlineData) {
+      const textResponse = response.text;
+      const errorMessage = textResponse ? `Upscaling failed: ${textResponse}` : 'Upscaling failed: No image returned from API.';
+      throw new Error(errorMessage);
     }
-    return result;
+    
+    const base64ImageBytes: string = editedImagePart.inlineData.data;
+    const mimeType = editedImagePart.inlineData.mimeType;
+    const url = `data:${mimeType};base64,${base64ImageBytes}`;
+
+    return { url, data: base64ImageBytes, mimeType };
   } catch (error) {
-    handleApiError(error, 'multiple image editing');
+    console.error("Error upscaling image:", error);
+    if (error instanceof Error) throw error;
+    throw new Error("Failed to upscale image. The model might not be able to fulfill this request.");
   }
+};
+
+
+/**
+ * Edits and combines MULTIPLE images based on a text prompt into a single image.
+ * @param images An array of images to be processed.
+ * @param prompt The instruction for combining or editing the images.
+ * @returns A promise that resolves to the final composed ImageFile.
+ */
+export const editWithMultipleImages = async (images: ImageFile[], prompt: string): Promise<ImageFile> => {
+    try {
+        const imageParts = images.map(image => ({
+            inlineData: { data: image.data, mimeType: image.mimeType }
+        }));
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image-preview',
+            contents: {
+                parts: [ ...imageParts, { text: prompt } ],
+            },
+            config: {
+                responseModalities: [Modality.IMAGE, Modality.TEXT],
+                systemInstruction: "You are a master digital artist specializing in photo composition. The user will provide multiple images and a text prompt. Your task is to creatively combine, blend, or composite these images into a single, cohesive new image based on the user's request. Pay close attention to lighting, perspective, and style to ensure the final result is seamless. Strictly output only the final composed image in the required modality. Do not add any conversational text, descriptions, or apologies in the text part of the response. If the request is impossible, you may explain why in a short text response."
+            },
+        });
+
+        const editedImagePart = response.candidates?.[0]?.content?.parts?.find(part => part.inlineData);
+
+        if (!editedImagePart || !editedImagePart.inlineData) {
+            const textResponse = response.text;
+            const errorMessage = textResponse ? `Editing failed: ${textResponse}` : 'Editing failed: No image returned from API.';
+            throw new Error(errorMessage);
+        }
+
+        const base64ImageBytes: string = editedImagePart.inlineData.data;
+        const mimeType = editedImagePart.inlineData.mimeType;
+        const url = `data:${mimeType};base64,${base64ImageBytes}`;
+
+        return { url, data: base64ImageBytes, mimeType };
+    } catch (error) {
+        console.error("Error editing with multiple images:", error);
+        if (error instanceof Error) throw error;
+        throw new Error("Failed to process images. The model might not be able to fulfill this request.");
+    }
+};
+
+/**
+ * A helper function to generate prompts and parse the expected JSON output.
+ * @param prompt The system prompt for the AI.
+ * @param contents Optional content (like images) to send along with the prompt.
+ * @returns A promise that resolves to an array of string prompts.
+ */
+const generateJsonPrompts = async (prompt: string, contents?: { parts: any[] }): Promise<string[]> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: contents || prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: { prompts: { type: Type.ARRAY, items: { type: Type.STRING } } },
+                    required: ['prompts'],
+                },
+            },
+        });
+        const jsonText = response.text.trim();
+        const parsed = JSON.parse(jsonText);
+        return parsed.prompts && Array.isArray(parsed.prompts) ? parsed.prompts.slice(0, 4) : [];
+    } catch (error) {
+        console.error("Error generating example prompts:", error);
+        return []; // Return empty on error to avoid showing fallback prompts that might be irrelevant
+    }
+}
+
+/**
+ * Generates a list of generic example prompts for image generation.
+ */
+export const generateGenericExamplePrompts = async (): Promise<string[]> => {
+    const fallback = [
+        "A majestic griffin soaring over a futuristic city, cinematic lighting",
+        "An enchanted library inside a giant, ancient tree, fantasy art",
+        "A cute robot serving tea to a cat in a steampunk cafe",
+        "Abstract painting of a jazz musician's soul, vibrant colors",
+    ];
+    const prompts = await generateJsonPrompts("Generate 4 diverse, imaginative, and visually descriptive prompts for an AI image generator. Each prompt must be a short phrase. Include a mix of styles like photorealistic, fantasy, sci-fi, and abstract art.");
+    return prompts.length > 0 ? prompts : fallback;
+};
+
+/**
+ * Generates contextual editing prompts based on an image's content.
+ */
+export const generateContextualEditingPrompts = async (image: ImageFile): Promise<string[]> => {
+    const fallback = [
+        "Make the sky look like a galaxy",
+        "Add a small, friendly dragon on the shoulder",
+        "Change the season to autumn",
+        "Turn this into a vintage photograph",
+    ];
+    const contents = {
+        parts: [
+            { inlineData: { data: image.data, mimeType: image.mimeType } },
+            { text: "Analyze this image's main subject, setting, and style. Generate 4 creative, short editing prompts that are highly relevant to the image content. Suggestions should be actionable and interesting (e.g., 'change the season to winter', 'add a reflection in the water', 'make the lighting more dramatic')." }
+        ]
+    };
+    const prompts = await generateJsonPrompts("", contents);
+    return prompts.length > 0 ? prompts : fallback;
+};
+
+
+/**
+ * Generates example prompts for multi-image editing scenarios.
+ */
+export const generateMultiImageExamplePrompts = async (): Promise<string[]> => {
+    const fallback = [
+        "Create a collage of these images",
+        "Merge these photos into a single landscape",
+        "Take the person from the first image and add them to the second",
+        "Blend these images together with a dreamlike effect"
+    ];
+    const prompts = await generateJsonPrompts("Generate 4 short, creative prompts for combining multiple images. The prompts should suggest actions like creating a seamless photo-merge, building a narrative collage, swapping faces or objects, or blending textures and styles between the images.");
+    return prompts.length > 0 ? prompts : fallback;
 };

@@ -1,11 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ImageFile } from '../types';
 import { Page } from '../App';
-import { generateImage, generateExamplePrompts } from '../services/geminiService';
+import { generateImage, generateGenericExamplePrompts, upscaleImage } from '../services/geminiService';
 import LoadingPlaceholder from './LoadingPlaceholder';
 import LoadingSpinner from './LoadingSpinner';
-import { Button } from './ui';
-import { DownloadIcon, EditIcon, NewSessionIcon, SparklesIcon, PlusIcon, TrashIcon } from './Icons';
+import { Button, Card } from './ui';
+import { DownloadIcon, EditIcon, NewSessionIcon, ImageIcon, RefreshIcon, SparklesIcon } from './Icons';
+
+const loadingMessages = [
+    "Let Aadish Cook 🍳",
+    "Gathering creative juices...",
+    "Consulting the AI muses...",
+    "Painting with algorithms...",
+    "Polishing the masterpiece...",
+];
 
 interface ImageGeneratorPageProps {
   navigate: (page: Page, image?: ImageFile) => void;
@@ -15,76 +23,33 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
   const [prompt, setPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [style, setStyle] = useState('none');
-  const [referenceImages, setReferenceImages] = useState<ImageFile[]>([]);
   const [generatedImage, setGeneratedImage] = useState<ImageFile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState('');
+  const [isUpscaling, setIsUpscaling] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
   const [error, setError] = useState<string | null>(null);
   const [examplePrompts, setExamplePrompts] = useState<string[]>([]);
   const [loadingPrompts, setLoadingPrompts] = useState(true);
+  const messageIntervalRef = useRef<number | null>(null);
 
-  const referenceFileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const fetchPrompts = async () => {
-      setLoadingPrompts(true);
-      const prompts = await generateExamplePrompts('generation');
-      setExamplePrompts(prompts);
-      setLoadingPrompts(false);
-    };
-    fetchPrompts();
+  const fetchPrompts = useCallback(async () => {
+    setLoadingPrompts(true);
+    const prompts = await generateGenericExamplePrompts();
+    setExamplePrompts(prompts);
+    setLoadingPrompts(false);
   }, []);
 
-  const loadingPhases = [
-    'Warming up the AI... 🎨',
-    'Gathering stardust... ✨',
-    'Painting with pixels... 🖌️',
-    'Unleashing creativity... 🚀',
-    'Finalizing your masterpiece... 🖼️',
-  ];
+  useEffect(() => {
+    fetchPrompts();
+  }, [fetchPrompts]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isLoading) {
-      let phase = 0;
-      setLoadingMessage(loadingPhases[phase]);
-      interval = setInterval(() => {
-        phase = (phase + 1) % loadingPhases.length;
-        setLoadingMessage(loadingPhases[phase]);
-      }, 2000);
-    }
-    return () => clearInterval(interval);
-  }, [isLoading]);
-
-  const handleReferenceImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      const newImages: ImageFile[] = [];
-      const promises = Array.from(files).map(file => {
-        return new Promise<void>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const base64String = (reader.result as string).split(',')[1];
-            newImages.push({
-              file,
-              url: URL.createObjectURL(file),
-              data: base64String,
-              mimeType: file.type,
-            });
-            resolve();
-          };
-          reader.readAsDataURL(file);
-        });
-      });
-      Promise.all(promises).then(() => {
-        setReferenceImages(prev => [...prev, ...newImages]);
-      });
-    }
-  };
-
-  const removeReferenceImage = (index: number) => {
-    setReferenceImages(prev => prev.filter((_, i) => i !== index));
-  };
+    return () => {
+      if (messageIntervalRef.current) {
+        clearInterval(messageIntervalRef.current);
+      }
+    };
+  }, []);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -94,16 +59,41 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
     setIsLoading(true);
     setError(null);
     setGeneratedImage(null);
+
+    setLoadingMessage(loadingMessages[0]);
+    let messageIndex = 0;
+    messageIntervalRef.current = window.setInterval(() => {
+      messageIndex = (messageIndex + 1) % loadingMessages.length;
+      setLoadingMessage(loadingMessages[messageIndex]);
+    }, 2500);
+
     try {
-      const image = await generateImage(prompt, aspectRatio, style, referenceImages);
+      const image = await generateImage(prompt, aspectRatio, style);
       setGeneratedImage(image);
     } catch (err) {
       setError((err as Error).message || 'An unknown error occurred.');
     } finally {
+      if (messageIntervalRef.current) {
+        clearInterval(messageIntervalRef.current);
+      }
       setIsLoading(false);
     }
   };
   
+  const handleUpscale = async () => {
+    if (!generatedImage) return;
+    setIsUpscaling(true);
+    setError(null);
+    try {
+        const upscaledImage = await upscaleImage(generatedImage);
+        setGeneratedImage(upscaledImage);
+    } catch (err) {
+        setError((err as Error).message || 'Upscaling failed.');
+    } finally {
+        setIsUpscaling(false);
+    }
+  };
+
   const handleStartNew = () => {
     setGeneratedImage(null);
     setPrompt('');
@@ -127,45 +117,28 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
     <div>
       <h2 className="text-3xl font-bold text-white mb-6">Image Generator</h2>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-        <div className="flex flex-col gap-6">
+        <Card className="p-6 sm:p-8 flex flex-col gap-6">
           {!generatedImage ? (
             <>
               <div>
-                <label htmlFor="prompt" className="block text-sm font-medium text-gray-300 mb-2">Prompt</label>
+                <div className="flex justify-between items-center mb-2">
+                  <label htmlFor="prompt" className="block text-sm font-medium text-gray-300">Prompt</label>
+                  <Button variant="ghost" size="sm" onClick={fetchPrompts} disabled={loadingPrompts || isLoading}>
+                      <RefreshIcon className={`w-4 h-4 mr-2 ${loadingPrompts ? 'animate-spin' : ''}`}/> Inspire Me
+                  </Button>
+                </div>
                 <textarea
                   id="prompt"
                   rows={4}
-                  className="w-full bg-gray-800 border border-gray-600 rounded-md text-white p-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg text-white p-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition placeholder:text-gray-500"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="e.g., A majestic lion wearing a crown, cinematic lighting"
                 />
               </div>
               
               <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block text-sm font-medium text-gray-300">Reference Images (Optional)</label>
-                  <Button variant="ghost" size="sm" onClick={() => referenceFileInputRef.current?.click()} className="text-xs">
-                    <PlusIcon className="w-4 h-4 mr-1" />
-                    Add Reference
-                  </Button>
-                </div>
-                <input type="file" accept="image/*" multiple ref={referenceFileInputRef} onChange={handleReferenceImageUpload} className="hidden" />
-                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  {referenceImages.map((image, index) => (
-                    <div key={index} className="relative group aspect-square">
-                      <img src={image.url} alt={`ref-${index}`} className="w-full h-full object-cover rounded-md" />
-                      <button onClick={() => removeReferenceImage(index)} className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-500 transition-all focus:opacity-100">
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-white/10 my-2"></div>
-
-              <div>
-                <h4 className="text-sm font-medium text-gray-400 mb-2">Or try an example:</h4>
+                <h4 className="text-sm font-medium text-gray-400 mb-3">Or try an example:</h4>
                 {loadingPrompts ? (
                   <div className="flex items-center gap-2 text-sm text-gray-400">
                     <LoadingSpinner className="w-4 h-4" />
@@ -174,7 +147,7 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {examplePrompts.map((p, i) => (
-                      <button key={i} onClick={() => setPrompt(p)} className="text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded-full transition-colors">
+                      <button key={i} onClick={() => setPrompt(p)} className="text-sm bg-white/10 hover:bg-white/20 text-gray-200 px-3 py-1.5 rounded-full transition-colors">
                         {p}
                       </button>
                     ))}
@@ -182,18 +155,16 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
                 )}
               </div>
 
-              <div className="border-t border-white/10 my-2"></div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="aspectRatio" className="block text-sm font-medium text-gray-300 mb-2">Aspect Ratio</label>
                   <select
                     id="aspectRatio"
-                    className="w-full bg-gray-800 border border-gray-600 rounded-md text-white p-2.5 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg text-white p-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
                     value={aspectRatio}
                     onChange={(e) => setAspectRatio(e.target.value)}
                   >
-                    {aspectRatios.map(ar => <option key={ar} value={ar}>{ar}</option>)}
+                    {aspectRatios.map(ar => <option key={ar} value={ar} className="bg-[#0B0F19]">{ar}</option>)}
                   </select>
                 </div>
 
@@ -201,11 +172,11 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
                   <label htmlFor="style" className="block text-sm font-medium text-gray-300 mb-2">Style</label>
                   <select
                     id="style"
-                    className="w-full bg-gray-800 border border-gray-600 rounded-md text-white p-2.5 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg text-white p-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition"
                     value={style}
                     onChange={(e) => setStyle(e.target.value)}
                   >
-                    {styles.map(s => <option key={s} value={s} className="capitalize">{s}</option>)}
+                    {styles.map(s => <option key={s} value={s} className="capitalize bg-[#0B0F19]">{s}</option>)}
                   </select>
                 </div>
               </div>
@@ -213,11 +184,10 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
               <Button
                 onClick={handleGenerate}
                 isLoading={isLoading}
-                loadingText="Generating..."
-                className="w-full"
+                loadingText={loadingMessage}
+                className="w-full mt-2"
                 size="lg"
               >
-                <SparklesIcon className="w-5 h-5 mr-2" />
                 Generate Image
               </Button>
               {error && <p className="text-red-400 text-sm mt-2 text-center">{error}</p>}
@@ -225,38 +195,50 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
           ) : (
             <div className="flex flex-col gap-4">
                 <h3 className="text-xl font-bold text-white">Your Masterpiece</h3>
-                <p className="text-gray-300">Download your image, start a new session, or send it to the editor for more detailed changes.</p>
-                <div className="flex flex-col sm:flex-row gap-4 mt-4">
-                     <Button onClick={handleDownload} variant="secondary" className="w-full">
-                        <DownloadIcon className="w-5 h-5 mr-2" />
-                        Download
+                <p className="text-gray-300">Download your image, enhance its quality, or send it to the editor for more detailed changes.</p>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    <Button onClick={handleDownload} variant="secondary" disabled={isLoading || isUpscaling}>
+                        <DownloadIcon className="w-5 h-5 mr-2" /> Download
                     </Button>
-                    <Button onClick={() => navigate(Page.EDITOR, generatedImage)} className="w-full">
+                    <Button 
+                        onClick={handleUpscale} 
+                        variant="secondary" 
+                        className="relative" 
+                        isLoading={isUpscaling} 
+                        loadingText="Upscaling..." 
+                        disabled={isLoading || isUpscaling}
+                    >
+                       <SparklesIcon className="w-5 h-5 mr-2" /> Upscale
+                       <span className="absolute -top-2 -right-2 bg-purple-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">BETA</span>
+                    </Button>
+                    <Button onClick={() => navigate(Page.EDITOR, generatedImage)} className="sm:col-span-2" disabled={isLoading || isUpscaling}>
                         <EditIcon className="w-5 h-5 mr-2" />
                         Follow-up Edit
                     </Button>
                 </div>
-                 <Button onClick={handleStartNew} variant="ghost" className="w-full mt-2">
+                 <Button onClick={handleStartNew} variant="ghost" className="w-full mt-2" disabled={isLoading || isUpscaling}>
                     <NewSessionIcon className="w-5 h-5 mr-2" />
                     Start New Session
                 </Button>
             </div>
           )}
-        </div>
+        </Card>
 
-        <div className="w-full aspect-square rounded-lg flex items-center justify-center bg-gray-800/50 border border-dashed border-gray-600 overflow-hidden">
-          {isLoading ? (
-            <LoadingPlaceholder message="Conjuring pixels..." />
-          ) : generatedImage ? (
-            <img src={generatedImage.url} alt={prompt} className="object-contain w-full h-full" />
-          ) : (
-            <div className="text-center text-gray-500 p-4 flex flex-col items-center justify-center">
-              <SparklesIcon className="w-12 h-12 mb-4 text-gray-600" />
-              <h3 className="font-bold text-lg text-white">Your generated image will appear here</h3>
-              <p className="text-sm">Let your imagination run wild!</p>
-            </div>
-          )}
-        </div>
+        <Card className="w-full aspect-square overflow-hidden p-2">
+          <div className="w-full h-full rounded-lg flex items-center justify-center bg-black/20 overflow-hidden">
+            {isLoading ? (
+              <LoadingPlaceholder message={loadingMessage} />
+            ) : generatedImage ? (
+              <img src={generatedImage.url} alt={prompt || 'Generated image'} className="object-contain w-full h-full" />
+            ) : (
+              <div className="text-center text-gray-500 p-4">
+                <ImageIcon className="w-16 h-16 mx-auto mb-4 text-gray-600"/>
+                Your generated image will appear here.
+              </div>
+            )}
+          </div>
+        </Card>
       </div>
     </div>
   );

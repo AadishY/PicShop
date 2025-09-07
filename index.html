@@ -1,41 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Aadish AI Picshop</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script type="importmap">
-      {
-        "imports": {
-          "react": "https://aistudiocdn.com/react@^19.1.1",
-          "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
-          "react/": "https://aistudiocdn.com/react@^19.1.1/",
-          "@google/genai": "https://aistudiocdn.com/@google/genai@^1.17.0"
-        }
-      }
-    </script>
-    <style>
-      /* A basic reset and theme setup to match the app's dark mode */
-      body {
-        margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-          sans-serif;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-        background-color: #111827; /* Equivalent to Tailwind's bg-gray-900 */
-      }
-      /* Fix for dropdown option colors in dark mode */
-      select option {
-          background: #374151; /* bg-gray-700 */
-          color: white;
-      }
-    </style>
-  </head>
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aadish AI Picshop</title>
+  
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://aistudiocdn.com/react@^19.1.1",
+      "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+      "react/": "https://aistudiocdn.com/react@^19.1.1/",
+      "@google/genai": "https://aistudiocdn.com/@google/genai@^1.17.0"
+    }
+  }
+  </script>
+  
+  <script type="module" src="/index.tsx"></script>
+  
+  <script src="https://aistudiocdn.com/tailwindcss@^3.4.1"></script>
+  
+  <style>
+    body {
+        background-color: #0B0F19; /* A dark base color that matches the gradient */
+    }
+
+    .bg-main-gradient {
+        /* A more subtle, animated gradient */
+        background-image: radial-gradient(circle at 25% 25%, #1a237e 0%, #0b0f19 25%), radial-gradient(circle at 75% 75%, #4a148c 0%, #0b0f19 25%);
+    }
+
+    .bg-200% {
+        background-size: 200% 200%;
+    }
+
+    @keyframes pan-bg {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    .animate-pan-bg {
+        animation: pan-bg 20s ease infinite;
+    }
+
+    .feature-card-glow {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .feature-card-glow:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-radius: 0.75rem; /* same as rounded-xl */
+        border: 1px solid transparent;
+        background: linear-gradient(120deg, #818cf8, #c084fc, #818cf8) border-box;
+        -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: destination-out;
+        mask-composite: exclude;
+        opacity: 0;
+        transition: opacity 0.3s ease-in-out;
+    }
+
+    .feature-card-glow:hover:before {
+        opacity: 0.6;
+    }
+
+    @keyframes fade-in-down {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-down {
+        animation: fade-in-down 0.6s ease-out forwards;
+    }
+
+    @keyframes fade-in-up {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-up {
+        animation: fade-in-up 0.6s ease-out 0.2s forwards;
+        animation-fill-mode: backwards; /* Start invisible before animation begins */
+    }
+    .ReactCrop .ReactCrop__selection {
+        border: 2px solid rgba(255, 255, 255, 0.8);
+    }
+  </style>
+
+</head>
+<body>
+  <noscript>You need to enable JavaScript to run this app.</noscript>
+  <div id="root"></div>
+</body>
 </html>
