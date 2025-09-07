@@ -6,56 +6,49 @@ import { Page } from '../App';
 import { editImage, generateExamplePrompts } from '../services/geminiService';
 import ImageDisplay from './ImageDisplay';
 import EditingControls from './EditingControls';
-import MaskingTool from './MaskingTool';
 import { EditIcon } from './Icons';
 
-const cropImage = (imageFile: ImageFile, crop: Crop): Promise<ImageFile> => {
+const cropImage = (
+  image: HTMLImageElement,
+  imageFile: ImageFile,
+  crop: Crop
+): Promise<ImageFile> => {
   return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = imageFile.url;
+    const canvas = document.createElement('canvas');
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
 
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const scaleX = img.naturalWidth / img.width;
-      const scaleY = img.naturalHeight / img.height;
+    canvas.width = crop.width * scaleX;
+    canvas.height = crop.height * scaleY;
 
-      canvas.width = crop.width;
-      canvas.height = crop.height;
+    const ctx = canvas.getContext('2d');
 
-      const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return reject(new Error('Could not get canvas context'));
+    }
 
-      if (!ctx) {
-        return reject(new Error('Could not get canvas context'));
-      }
+    ctx.drawImage(
+      image,
+      crop.x * scaleX,
+      crop.y * scaleY,
+      crop.width * scaleX,
+      crop.height * scaleY,
+      0,
+      0,
+      crop.width * scaleX,
+      crop.height * scaleY
+    );
 
-      ctx.drawImage(
-        img,
-        crop.x * scaleX,
-        crop.y * scaleY,
-        crop.width * scaleX,
-        crop.height * scaleY,
-        0,
-        0,
-        crop.width,
-        crop.height
-      );
+    const newDataUrl = canvas.toDataURL(imageFile.mimeType);
+    const base64String = newDataUrl.split(',')[1];
 
-      const newDataUrl = canvas.toDataURL(imageFile.mimeType);
-      const base64String = newDataUrl.split(',')[1];
-      
-      const newImage: ImageFile = {
-        url: newDataUrl,
-        data: base64String,
-        mimeType: imageFile.mimeType,
-      };
-
-      resolve(newImage);
+    const newImage: ImageFile = {
+      url: newDataUrl,
+      data: base64String,
+      mimeType: imageFile.mimeType,
     };
 
-    img.onerror = () => {
-      reject(new Error('Failed to load image for cropping.'));
-    };
+    resolve(newImage);
   });
 };
 
@@ -77,11 +70,10 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
   const [examplePrompts, setExamplePrompts] = useState<string[]>([]);
   const [loadingPrompts, setLoadingPrompts] = useState(false);
   const [isComparing, setIsComparing] = useState(false);
-  const [isMasking, setIsMasking] = useState(false);
-  const [maskDataUrl, setMaskDataUrl] = useState<string | null>(null);
   const [crop, setCrop] = useState<Crop>();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const currentImage = history[historyIndex] ?? null;
 
   useEffect(() => {
@@ -126,6 +118,27 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
     }
   };
   
+  const loadingPhases = [
+    'Let Aadish Cook 🍳...',
+    'Preheating the AI oven...',
+    'Mixing the pixels...',
+    'Adding a dash of magic...',
+    'Almost there...',
+  ];
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isLoading) {
+      let phase = 0;
+      setLoadingMessage(loadingPhases[phase]);
+      interval = setInterval(() => {
+        phase = (phase + 1) % loadingPhases.length;
+        setLoadingMessage(loadingPhases[phase]);
+      }, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
   const handleEdit = async () => {
     if (!prompt.trim() && style === 'none') {
       setError('Please enter an editing instruction or select a style.');
@@ -133,14 +146,12 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
     }
     if (!currentImage) return;
 
-    setLoadingMessage('let aadish cook 🍳');
     setIsLoading(true);
     setError(null);
 
     try {
       const fullPrompt = style === 'none' ? prompt : `${prompt}, ${style}`;
-      const mask = maskDataUrl ? { data: maskDataUrl.split(',')[1], mimeType: 'image/png' } : null;
-      const result = await editImage(fullPrompt, currentImage, mask);
+      const result = await editImage(fullPrompt, currentImage);
       if (result.image) {
         const newHistory = [...history.slice(0, historyIndex + 1), result.image];
         setHistory(newHistory);
@@ -153,19 +164,18 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
       setError((err as Error).message || 'An unknown error occurred.');
     } finally {
       setIsLoading(false);
-      setMaskDataUrl(null);
     }
   };
 
   const handleCrop = async () => {
-    if (!currentImage || !crop) return;
+    if (!currentImage || !crop || !imgRef.current) return;
 
     setLoadingMessage('Cropping image...');
     setIsLoading(true);
     setError(null);
 
     try {
-      const croppedImage = await cropImage(currentImage, crop);
+      const croppedImage = await cropImage(imgRef.current, currentImage, crop);
       const newHistory = [...history.slice(0, historyIndex + 1), croppedImage];
       setHistory(newHistory);
       setHistoryIndex(newHistory.length - 1);
@@ -214,11 +224,6 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
     { value: 'in a pop art style', label: 'Pop Art' }
   ];
 
-  const imageForMasking = new Image();
-  if (currentImage) {
-    imageForMasking.src = currentImage.url;
-  }
-
   return (
     <div>
       <h2 className="text-3xl font-bold text-white mb-6">Image Editor</h2>
@@ -237,10 +242,10 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
           handleUndo={handleUndo}
           handleRedo={handleRedo}
           setIsComparing={setIsComparing}
-          setIsMasking={setIsMasking}
           historyIndex={historyIndex}
           historyLength={history.length}
           fileInputRef={fileInputRef}
+          imgRef={imgRef}
         />
 
         {currentImage ? (
@@ -265,17 +270,6 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
           </div>
         )}
       </div>
-      {isMasking && currentImage && (
-        <MaskingTool
-          image={imageForMasking}
-          onMaskComplete={(dataUrl) => {
-            setMaskDataUrl(dataUrl);
-            setIsMasking(false);
-            handleEdit();
-          }}
-          onCancel={() => setIsMasking(false)}
-        />
-      )}
     </div>
   );
 };

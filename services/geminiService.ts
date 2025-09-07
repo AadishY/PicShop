@@ -35,13 +35,13 @@ export const generateExamplePrompts = async (
         userPrompt = "Give me 4 example prompts for generating images.";
         break;
       case 'editing':
-        systemInstruction = "You are an AI assistant that generates creative and practical prompts for editing the provided photo. Provide 4 concise and clear editing instructions relevant to the image. Do not use markdown or numbering. Each prompt should be on a new line.";
+        systemInstruction = "You are an expert AI photo analyst. Your task is to analyze the provided image and suggest 4 creative and interesting editing ideas. The suggestions should be concise, inspiring, and directly applicable as prompts for an image editing AI. Examples: 'Turn the sky into a swirling galaxy', 'Add a majestic dragon flying in the background', 'Apply a vintage, sepia-toned filter', 'Make it look like a detailed watercolor painting'. Do not use markdown or numbering. Each prompt must be on a new line.";
         userPrompt = image
-          ? { parts: [{ inlineData: { data: image.data, mimeType: image.mimeType } }, { text: "Give me 4 example prompts for editing this photo." }] }
+          ? { parts: [{ inlineData: { data: image.data, mimeType: image.mimeType } }, { text: "Analyze this photo and give me 4 creative editing prompts." }] }
           : "Give me 4 generic example prompts for editing a photo, like 'make it black and white' or 'change the background to a beach'.";
         break;
       case 'multi-editing':
-        systemInstruction = "You are an AI assistant that generates creative prompts for editing multiple images at once. The prompts should suggest actions that can be applied consistently across a set of images. Provide 4 concise examples. Do not use markdown or numbering. Each prompt should be on a new line.";
+        systemInstruction = "You are an AI assistant that generates creative prompts for editing multiple images at once. The prompts should suggest actions that can be applied consistently across a set of images, like applying a uniform style or creating a themed collage. Provide 4 concise examples. Examples: 'Apply a consistent vintage film look to all images', 'Create a futuristic sci-fi poster from these images', 'Turn them all into black and white charcoal sketches', 'Arrange them into a dynamic comic book layout'. Do not use markdown or numbering. Each prompt must be on a new line.";
         userPrompt = "Give me 4 example prompts for editing a batch of photos, such as creating a collage or applying a uniform color grade.";
         break;
     }

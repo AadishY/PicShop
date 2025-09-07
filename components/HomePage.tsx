@@ -58,9 +58,9 @@ interface FeatureCardProps {
 }
 
 const FeatureCard: React.FC<FeatureCardProps> = ({ icon, title, description, onClick, isBeta = false }) => (
-  <Card 
+  <Card
     onClick={onClick}
-    className="relative p-8 flex flex-col items-center cursor-pointer group transition-all duration-300 hover:bg-gray-800/80 hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2"
+    className="relative p-8 flex flex-col items-center cursor-pointer group transition-all duration-300 bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md shadow-lg hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2"
   >
     {isBeta && (
       <span className="absolute top-3 right-3 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full">BETA</span>

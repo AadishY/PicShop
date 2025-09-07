@@ -39,7 +39,7 @@ const App: React.FC = () => {
 
   return (
     <div className="bg-gray-900 min-h-screen font-sans text-white">
-      <header className="bg-gray-900/70 backdrop-blur-sm border-b border-gray-700 sticky top-0 z-50 shadow-lg shadow-black/20">
+      <header className="bg-white/10 backdrop-blur-lg border-b border-white/20 sticky top-0 z-50 shadow-lg shadow-black/20">
           <nav className="container mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex items-center justify-between h-16">
                   <div className="flex items-center">

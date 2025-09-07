@@ -3,7 +3,7 @@ import ReactCrop, { type Crop } from 'react-image-crop';
 import { ImageFile } from '../types';
 import LoadingPlaceholder from './LoadingPlaceholder';
 import { Button } from './ui';
-import { UploadIcon, CompareIcon, DownloadIcon, UndoIcon, RedoIcon, CropIcon, SparklesIcon } from './Icons';
+import { UploadIcon, CompareIcon, DownloadIcon, UndoIcon, RedoIcon, CropIcon } from './Icons';
 
 interface ImageDisplayProps {
   currentImage: ImageFile | null;
@@ -19,10 +19,10 @@ interface ImageDisplayProps {
   handleUndo: () => void;
   handleRedo: () => void;
   setIsComparing: (isComparing: boolean) => void;
-  setIsMasking: (isMasking: boolean) => void;
   historyIndex: number;
   historyLength: number;
   fileInputRef: React.RefObject<HTMLInputElement>;
+  imgRef: React.RefObject<HTMLImageElement>;
 }
 
 const ImageDisplay: React.FC<ImageDisplayProps> = ({
@@ -39,10 +39,10 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
   handleUndo,
   handleRedo,
   setIsComparing,
-  setIsMasking,
   historyIndex,
   historyLength,
   fileInputRef,
+  imgRef,
 }) => {
   return (
     <div className="w-full flex flex-col gap-4">
@@ -52,6 +52,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
         ) : currentImage ? (
           <ReactCrop crop={crop} onChange={c => setCrop(c)}>
             <img
+              ref={imgRef}
               src={isComparing && originalImage ? originalImage.url : currentImage.url}
               alt="Editable"
               className="object-contain w-full h-full"
@@ -71,7 +72,7 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
       <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
 
       {currentImage && (
-        <div className="bg-gray-800/50 rounded-lg p-2 grid grid-cols-2 sm:grid-cols-6 gap-2">
+        <div className="bg-gray-800/50 rounded-lg p-2 grid grid-cols-2 sm:grid-cols-5 gap-2">
           <Button
             variant="secondary"
             onMouseDown={() => setIsComparing(true)}
@@ -94,9 +95,6 @@ const ImageDisplay: React.FC<ImageDisplayProps> = ({
           </Button>
           <Button variant="secondary" onClick={handleCrop} disabled={!crop}>
             <CropIcon className="w-5 h-5 mr-2" /> Crop
-          </Button>
-          <Button variant="secondary" onClick={() => setIsMasking(true)}>
-            <SparklesIcon className="w-5 h-5 mr-2" /> Mask
           </Button>
         </div>
       )}

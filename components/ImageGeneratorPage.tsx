@@ -31,6 +31,27 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
     fetchPrompts();
   }, []);
 
+  const loadingPhases = [
+    'Warming up the AI... 🎨',
+    'Gathering stardust... ✨',
+    'Painting with pixels... 🖌️',
+    'Unleashing creativity... 🚀',
+    'Finalizing your masterpiece... 🖼️',
+  ];
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isLoading) {
+      let phase = 0;
+      setLoadingMessage(loadingPhases[phase]);
+      interval = setInterval(() => {
+        phase = (phase + 1) % loadingPhases.length;
+        setLoadingMessage(loadingPhases[phase]);
+      }, 2000);
+    }
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
   const handleGenerate = async () => {
     if (!prompt.trim()) {
       setError('Please enter a prompt.');

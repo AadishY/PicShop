@@ -8,7 +8,7 @@ import { Button } from './ui';
 import { PlusIcon, TrashIcon, DownloadIcon, NewSessionIcon, EditIcon } from './Icons';
 
 interface MultiImageEditorPageProps {
-  navigate: (page: Page) => void;
+  navigate: (page: Page, image?: ImageFile) => void;
 }
 
 const MultiImageEditorPage: React.FC<MultiImageEditorPageProps> = ({ navigate }) => {
@@ -24,13 +24,15 @@ const MultiImageEditorPage: React.FC<MultiImageEditorPageProps> = ({ navigate })
 
   useEffect(() => {
     const fetchPrompts = async () => {
-      setLoadingPrompts(true);
-      const prompts = await generateExamplePrompts('multi-editing');
-      setExamplePrompts(prompts);
-      setLoadingPrompts(false);
+      if (images.length > 0) {
+        setLoadingPrompts(true);
+        const prompts = await generateExamplePrompts('multi-editing');
+        setExamplePrompts(prompts);
+        setLoadingPrompts(false);
+      }
     };
     fetchPrompts();
-  }, []);
+  }, [images]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -173,17 +175,21 @@ const MultiImageEditorPage: React.FC<MultiImageEditorPageProps> = ({ navigate })
           ) : (
              <div className="flex flex-col gap-4">
                 <h3 className="text-xl font-bold text-white">Result</h3>
-                <p className="text-gray-300">Your combined result is ready. You can now download it or start a new session.</p>
+                <p className="text-gray-300">Your combined result is ready. You can now download it, send it for a follow-up edit, or start a new session.</p>
                 <div className="flex flex-col sm:flex-row gap-4 mt-4">
                      <Button onClick={handleDownload} variant="secondary" className="w-full">
                         <DownloadIcon className="w-5 h-5 mr-2" />
                         Download
                     </Button>
-                    <Button onClick={handleStartNew} className="w-full">
-                        <NewSessionIcon className="w-5 h-5 mr-2" />
-                        Start New Session
+                    <Button onClick={() => navigate(Page.EDITOR, result?.image)} className="w-full" disabled={!result?.image}>
+                        <EditIcon className="w-5 h-5 mr-2" />
+                        Follow-up Edit
                     </Button>
                 </div>
+                <Button onClick={handleStartNew} variant="ghost" className="w-full mt-2">
+                    <NewSessionIcon className="w-5 h-5 mr-2" />
+                    Start New Session
+                </Button>
             </div>
           )}
         </div>
