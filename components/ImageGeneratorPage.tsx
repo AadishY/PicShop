@@ -8,11 +8,11 @@ import { Button, Card } from './ui';
 import { DownloadIcon, EditIcon, NewSessionIcon, ImageIcon, RefreshIcon, SparklesIcon } from './Icons';
 
 const loadingMessages = [
-    "Let Aadish Cook 🍳",
-    "Gathering creative juices...",
-    "Consulting the AI muses...",
-    "Painting with algorithms...",
-    "Polishing the masterpiece...",
+    "Warming up the AI's imagination...",
+    "Translating your prompt into a masterpiece...",
+    "The AI is painting with pixels...",
+    "Adding the finishing touches...",
+    "Almost there, just polishing the details..."
 ];
 
 interface ImageGeneratorPageProps {
@@ -34,9 +34,15 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
 
   const fetchPrompts = useCallback(async () => {
     setLoadingPrompts(true);
-    const prompts = await generateGenericExamplePrompts();
-    setExamplePrompts(prompts);
-    setLoadingPrompts(false);
+    setError(null);
+    try {
+        const prompts = await generateGenericExamplePrompts();
+        setExamplePrompts(prompts);
+    } catch (err) {
+        setError((err as Error).message || 'Failed to load suggestions.');
+    } finally {
+        setLoadingPrompts(false);
+    }
   }, []);
 
   useEffect(() => {

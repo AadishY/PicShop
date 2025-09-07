@@ -52,7 +52,7 @@ interface FeatureCardProps {
 const FeatureCard: React.FC<FeatureCardProps> = ({ icon, title, description, onClick }) => (
   <Card 
     onClick={onClick}
-    className="relative p-8 flex flex-col items-center cursor-pointer group feature-card-glow"
+    className="relative p-8 flex flex-col items-center cursor-pointer group feature-card-glow bg-slate-800/50 border border-slate-700 backdrop-blur-sm bg-noise-pattern"
   >
     <div className="mb-4 transition-transform duration-300 group-hover:scale-110">
       {icon}

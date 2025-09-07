@@ -39,9 +39,15 @@ const MultiImageEditorPage: React.FC<MultiImageEditorPageProps> = ({ navigate })
   const fetchPrompts = useCallback(async () => {
     if (images.length > 1) {
       setLoadingPrompts(true);
-      const prompts = await generateMultiImageExamplePrompts();
-      setExamplePrompts(prompts);
-      setLoadingPrompts(false);
+      setError(null);
+      try {
+        const prompts = await generateMultiImageExamplePrompts();
+        setExamplePrompts(prompts);
+      } catch (err) {
+        setError((err as Error).message || 'Failed to load suggestions.');
+      } finally {
+        setLoadingPrompts(false);
+      }
     } else {
       setExamplePrompts([]);
     }

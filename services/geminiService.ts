@@ -52,7 +52,11 @@ export const generateImage = async (prompt: string, aspectRatio: string, style: 
     };
   } catch (error) {
     console.error("Error generating image:", error);
-    throw new Error("Failed to generate image. Please check the prompt or try again later.");
+    if (error instanceof Error) {
+        // Forward the specific error message from the AI service
+        throw new Error(`Image generation failed. The AI gave this reason: ${error.message}`);
+    }
+    throw new Error("Failed to generate image due to an unknown error. Please try again later.");
   }
 };
 
@@ -208,7 +212,10 @@ const generateJsonPrompts = async (prompt: string, contents?: { parts: any[] }):
         return parsed.prompts && Array.isArray(parsed.prompts) ? parsed.prompts.slice(0, 4) : [];
     } catch (error) {
         console.error("Error generating example prompts:", error);
-        return []; // Return empty on error to avoid showing fallback prompts that might be irrelevant
+        if (error instanceof Error) {
+            throw new Error(`Failed to generate suggestions: ${error.message}`);
+        }
+        throw new Error("Failed to generate suggestions due to an unknown error.");
     }
 }
 

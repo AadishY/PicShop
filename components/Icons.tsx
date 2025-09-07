@@ -65,7 +65,7 @@ export const NewSessionIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) =
         <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
         <path d="m15 9-6 6"/>
         <path d="m9 9 6 6"/>
-    </g>
+    </svg>
 );
 
 export const TrashIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (

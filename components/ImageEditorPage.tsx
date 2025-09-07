@@ -48,7 +48,7 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
         const prompts = await generateContextualEditingPrompts(currentImage);
         setExamplePrompts(prompts);
       } catch (err) {
-        setError("Could not load suggestions.");
+        setError((err as Error).message || "Could not load suggestions.");
       } finally {
         setLoadingPrompts(false);
       }
