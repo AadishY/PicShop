@@ -1,9 +1,8 @@
 import React from 'react';
 import { Button } from './ui';
-import { SparklesIcon, NewSessionIcon } from './Icons';
+import { SparklesIcon, NewSessionIcon, UploadIcon, PlusIcon, TrashIcon } from './Icons';
 import LoadingSpinner from './LoadingSpinner';
-
-import { UploadIcon } from './Icons';
+import { ImageFile } from '../types';
 
 interface EditingControlsProps {
   prompt: string;
@@ -18,6 +17,9 @@ interface EditingControlsProps {
   error: string | null;
   handleNewSession: () => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
+  referenceImages: ImageFile[];
+  setReferenceImages: (images: ImageFile[] | ((prev: ImageFile[]) => ImageFile[])) => void;
+  referenceFileInputRef: React.RefObject<HTMLInputElement>;
 }
 
 const EditingControls: React.FC<EditingControlsProps> = ({
@@ -33,7 +35,40 @@ const EditingControls: React.FC<EditingControlsProps> = ({
   error,
   handleNewSession,
   fileInputRef,
+  referenceImages,
+  setReferenceImages,
+  referenceFileInputRef,
 }) => {
+  const handleReferenceImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const newImages: ImageFile[] = [];
+      const promises = Array.from(files).map(file => {
+        return new Promise<void>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64String = (reader.result as string).split(',')[1];
+            newImages.push({
+              file,
+              url: URL.createObjectURL(file),
+              data: base64String,
+              mimeType: file.type,
+            });
+            resolve();
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+      Promise.all(promises).then(() => {
+        setReferenceImages(prev => [...prev, ...newImages]);
+      });
+    }
+  };
+
+  const removeReferenceImage = (index: number) => {
+    setReferenceImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <>
@@ -55,6 +90,29 @@ const EditingControls: React.FC<EditingControlsProps> = ({
         </div>
 
         <div>
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-sm font-medium text-gray-300">Reference Images (Optional)</label>
+            <Button variant="ghost" size="sm" onClick={() => referenceFileInputRef.current?.click()} className="text-xs">
+              <PlusIcon className="w-4 h-4 mr-1" />
+              Add Reference
+            </Button>
+          </div>
+          <input type="file" accept="image/*" multiple ref={referenceFileInputRef} onChange={handleReferenceImageUpload} className="hidden" />
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+            {referenceImages.map((image, index) => (
+              <div key={index} className="relative group aspect-square">
+                <img src={image.url} alt={`ref-${index}`} className="w-full h-full object-cover rounded-md" />
+                <button onClick={() => removeReferenceImage(index)} className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-500 transition-all focus:opacity-100">
+                  <TrashIcon className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="border-t border-white/10 my-2"></div>
+
+        <div>
           <label htmlFor="style" className="block text-sm font-medium text-gray-300 mb-2">Style Presets</label>
           <select
             id="style"
@@ -66,8 +124,10 @@ const EditingControls: React.FC<EditingControlsProps> = ({
           </select>
         </div>
 
+        <div className="border-t border-white/10 my-2"></div>
+
         <div>
-          <h4 className="text-sm font-medium text-gray-400 mb-2">Try an example:</h4>
+          <h4 className="text-sm font-medium text-gray-400 mb-2">Or try an example:</h4>
           {loadingPrompts ? (
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <LoadingSpinner className="w-4 h-4" />

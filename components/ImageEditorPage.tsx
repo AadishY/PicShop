@@ -72,9 +72,11 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
   const [isComparing, setIsComparing] = useState(false);
   const [isCropMode, setIsCropMode] = useState(false);
   const [crop, setCrop] = useState<Crop>();
+  const [referenceImages, setReferenceImages] = useState<ImageFile[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+  const referenceFileInputRef = useRef<HTMLInputElement>(null);
   const currentImage = history[historyIndex] ?? null;
 
   useEffect(() => {
@@ -152,12 +154,13 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
 
     try {
       const fullPrompt = style === 'none' ? prompt : `${prompt}, ${style}`;
-      const result = await editImage(fullPrompt, currentImage);
+      const result = await editImage(fullPrompt, currentImage, null, referenceImages);
       if (result.image) {
         const newHistory = [...history.slice(0, historyIndex + 1), result.image];
         setHistory(newHistory);
         setHistoryIndex(newHistory.length - 1);
         setPrompt('');
+        setReferenceImages([]);
       } else {
         setError("The AI didn't return an image. Try a different prompt.");
       }
@@ -266,6 +269,9 @@ const ImageEditorPage: React.FC<ImageEditorPageProps> = ({ navigate, initialImag
             error={error}
             handleNewSession={handleNewSession}
             fileInputRef={fileInputRef}
+            referenceImages={referenceImages}
+            setReferenceImages={setReferenceImages}
+            referenceFileInputRef={referenceFileInputRef}
           />
         ) : (
           <div className="text-center text-gray-400 p-4 h-full flex flex-col items-center justify-center bg-gray-800/50 rounded-lg">

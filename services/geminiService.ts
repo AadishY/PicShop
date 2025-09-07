@@ -52,18 +52,18 @@ export const generateExamplePrompts = async (
 
     switch (context) {
       case 'generation':
-        systemInstruction = "You are an AI assistant that generates creative and diverse prompts for an image generation model. Provide 4 concise, interesting, and visually rich prompts. Do not use markdown or numbering. Each prompt should be on a new line.";
-        userPrompt = "Give me 4 example prompts for generating images.";
+        systemInstruction = "You are an AI assistant that generates spectacular, imaginative, and diverse prompts for an image generation model. Provide 4 concise, interesting, and visually rich prompts. Think outside the box. Examples: 'A bioluminescent jellyfish floating through a nebula', 'A steampunk city built on the back of a giant turtle', 'An art deco lobby of a hotel on Mars'. Do not use markdown or numbering. Each prompt must be on a new line.";
+        userPrompt = "Give me 4 spectacular and creative example prompts for generating images.";
         break;
       case 'editing':
-        systemInstruction = "You are an expert AI photo analyst. Your task is to analyze the provided image and suggest 4 highly creative and context-aware editing ideas. The suggestions should be directly inspired by the objects, colors, and composition of the image. For example, if you see a forest, suggest 'Add mystical glowing mushrooms to the forest floor'. If you see a portrait, suggest 'Change the subject's eye color to a vibrant, glowing blue'. The suggestions must be concise, inspiring, and directly applicable as prompts for an image editing AI. Do not use markdown or numbering. Each prompt must be on a new line.";
+        systemInstruction = "You are an expert AI photo analyst. Your task is to analyze the provided image and suggest 4 highly creative and context-aware editing ideas. The suggestions should be directly inspired by the objects, colors, and composition of the image, but push the boundaries of creativity. For example, if you see a forest, suggest 'Transform the forest into a surreal, alien jungle with glowing plants'. If you see a portrait, suggest 'Reimagine the person as a powerful elemental being made of fire'. The suggestions must be concise, inspiring, and directly applicable as prompts for an image editing AI. Do not use markdown or numbering. Each prompt must be on a new line.";
         userPrompt = image
           ? { parts: [{ inlineData: { data: image.data, mimeType: image.mimeType } }, { text: "Analyze this photo and give me 4 creative editing prompts based on its content." }] }
           : "Give me 4 generic example prompts for editing a photo, like 'make it black and white' or 'change the background to a beach'.";
         break;
       case 'multi-editing':
-        systemInstruction = "You are an AI assistant that generates creative prompts for editing multiple images at once. The prompts should suggest actions that can be applied consistently across a set of images, like applying a uniform style or creating a themed collage. Provide 4 concise examples. Examples: 'Apply a consistent vintage film look to all images', 'Create a futuristic sci-fi poster from these images', 'Turn them all into black and white charcoal sketches', 'Arrange them into a dynamic comic book layout'. Do not use markdown or numbering. Each prompt must be on a new line.";
-        userPrompt = "Give me 4 example prompts for editing a batch of photos, such as creating a collage or applying a uniform color grade.";
+        systemInstruction = "You are an AI assistant that generates creative prompts for editing multiple images at once. The prompts should suggest ambitious and imaginative actions that can be applied consistently across a set of images. Provide 4 concise examples. Examples: 'Merge all images into a single, seamless, panoramic dreamscape', 'Create a movie poster where each image is a different scene', 'Apply a consistent, vibrant, pop-art style to all images', 'Arrange them into a surreal, floating photo gallery in the clouds'. Do not use markdown or numbering. Each prompt must be on a new line.";
+        userPrompt = "Give me 4 creative example prompts for editing a batch of photos.";
         break;
     }
 
@@ -123,21 +123,33 @@ export const generateImage = async (prompt: string, aspectRatio: string, style: 
 export const editImage = async (
   prompt: string,
   image: { data: string; mimeType: string },
-  mask: { data: string; mimeType: string } | null = null
+  mask: { data: string; mimeType: string } | null = null,
+  referenceImages: { data: string; mimeType: string }[] = []
 ): Promise<{ text?: string; image?: ImageFile }> => {
   const client = getClient();
   if (!client) return handleApiError(new Error("API Client not initialized"), 'image editing');
 
   try {
-    const parts: any[] = [{ inlineData: { data: image.data, mimeType: image.mimeType } }];
+    const parts: any[] = [
+      { text: "The user wants to edit the following image:"},
+      { inlineData: { data: image.data, mimeType: image.mimeType } },
+    ];
+
+    if (referenceImages.length > 0) {
+      parts.push({ text: "Use these additional images as a reference for style, content, or context:"});
+      referenceImages.forEach(refImg => {
+        parts.push({ inlineData: { data: refImg.data, mimeType: refImg.mimeType } });
+      });
+    }
+
     let finalPrompt = prompt;
 
     if (mask) {
+      parts.push({ text: "The user has provided a mask. Apply the edit request ONLY to the white area of the mask. The black area must remain untouched."});
       parts.push({ inlineData: { data: mask.data, mimeType: mask.mimeType } });
-      finalPrompt = `You are an expert photo editor. The user has provided an image, a black-and-white mask, and a prompt. Apply the edit request ONLY to the white area of the mask. Do not change any other part of the image. The black area of the mask must remain untouched. User's request: "${prompt}"`;
     }
     
-    parts.push({ text: finalPrompt });
+    parts.push({ text: `Here is the user's editing instruction: "${finalPrompt}"` });
 
     const response = await client.models.generateContent({
       model: models.vision,

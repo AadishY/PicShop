@@ -17,6 +17,7 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
   const [style, setStyle] = useState('none');
   const [generatedImage, setGeneratedImage] = useState<ImageFile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [examplePrompts, setExamplePrompts] = useState<string[]>([]);
   const [loadingPrompts, setLoadingPrompts] = useState(true);
@@ -108,7 +109,7 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
               </div>
               
               <div>
-                <h4 className="text-sm font-medium text-gray-400 mb-2">Try an example:</h4>
+                <h4 className="text-sm font-medium text-gray-400 mb-2">Or try an example:</h4>
                 {loadingPrompts ? (
                   <div className="flex items-center gap-2 text-sm text-gray-400">
                     <LoadingSpinner className="w-4 h-4" />
@@ -124,6 +125,8 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
                   </div>
                 )}
               </div>
+
+              <div className="border-t border-white/10 my-2"></div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
