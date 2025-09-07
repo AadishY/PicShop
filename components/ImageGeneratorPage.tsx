@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ImageFile } from '../types';
 import { Page } from '../App';
 import { generateImage, generateExamplePrompts } from '../services/geminiService';
 import LoadingPlaceholder from './LoadingPlaceholder';
 import LoadingSpinner from './LoadingSpinner';
 import { Button } from './ui';
-import { DownloadIcon, EditIcon, NewSessionIcon, SparklesIcon } from './Icons';
+import { DownloadIcon, EditIcon, NewSessionIcon, SparklesIcon, PlusIcon, TrashIcon } from './Icons';
 
 interface ImageGeneratorPageProps {
   navigate: (page: Page, image?: ImageFile) => void;
@@ -15,12 +15,15 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
   const [prompt, setPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [style, setStyle] = useState('none');
+  const [referenceImages, setReferenceImages] = useState<ImageFile[]>([]);
   const [generatedImage, setGeneratedImage] = useState<ImageFile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [examplePrompts, setExamplePrompts] = useState<string[]>([]);
   const [loadingPrompts, setLoadingPrompts] = useState(true);
+
+  const referenceFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchPrompts = async () => {
@@ -53,6 +56,36 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
     return () => clearInterval(interval);
   }, [isLoading]);
 
+  const handleReferenceImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const newImages: ImageFile[] = [];
+      const promises = Array.from(files).map(file => {
+        return new Promise<void>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64String = (reader.result as string).split(',')[1];
+            newImages.push({
+              file,
+              url: URL.createObjectURL(file),
+              data: base64String,
+              mimeType: file.type,
+            });
+            resolve();
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+      Promise.all(promises).then(() => {
+        setReferenceImages(prev => [...prev, ...newImages]);
+      });
+    }
+  };
+
+  const removeReferenceImage = (index: number) => {
+    setReferenceImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleGenerate = async () => {
     if (!prompt.trim()) {
       setError('Please enter a prompt.');
@@ -62,7 +95,7 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
     setError(null);
     setGeneratedImage(null);
     try {
-      const image = await generateImage(prompt, aspectRatio, style);
+      const image = await generateImage(prompt, aspectRatio, style, referenceImages);
       setGeneratedImage(image);
     } catch (err) {
       setError((err as Error).message || 'An unknown error occurred.');
@@ -108,6 +141,29 @@ const ImageGeneratorPage: React.FC<ImageGeneratorPageProps> = ({ navigate }) => 
                 />
               </div>
               
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-gray-300">Reference Images (Optional)</label>
+                  <Button variant="ghost" size="sm" onClick={() => referenceFileInputRef.current?.click()} className="text-xs">
+                    <PlusIcon className="w-4 h-4 mr-1" />
+                    Add Reference
+                  </Button>
+                </div>
+                <input type="file" accept="image/*" multiple ref={referenceFileInputRef} onChange={handleReferenceImageUpload} className="hidden" />
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                  {referenceImages.map((image, index) => (
+                    <div key={index} className="relative group aspect-square">
+                      <img src={image.url} alt={`ref-${index}`} className="w-full h-full object-cover rounded-md" />
+                      <button onClick={() => removeReferenceImage(index)} className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-500 transition-all focus:opacity-100">
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t border-white/10 my-2"></div>
+
               <div>
                 <h4 className="text-sm font-medium text-gray-400 mb-2">Or try an example:</h4>
                 {loadingPrompts ? (

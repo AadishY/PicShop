@@ -16,7 +16,7 @@ const getClient = () => {
 
 const models = {
   prompts: 'gemini-2.5-flash',
-  images: 'imagen-4.0-generate-001',
+  images: 'imagen-3.0-generate-002',
   vision: 'gemini-2.5-flash-image-preview',
 };
 
@@ -92,20 +92,42 @@ export const generateExamplePrompts = async (
  * @param style The artistic style to apply.
  * @returns A promise that resolves to the generated ImageFile.
  */
-export const generateImage = async (prompt: string, aspectRatio: string, style: string): Promise<ImageFile> => {
+export const generateImage = async (
+  prompt: string,
+  aspectRatio: string,
+  style: string,
+  referenceImages: { data: string; mimeType: string }[] = []
+): Promise<ImageFile> => {
   const client = getClient();
   if (!client) return handleApiError(new Error("API Client not initialized"), 'image generation');
 
   try {
-    const mimeType = 'image/png';
-    const finalPrompt = style === 'none' ? prompt : `${prompt}, in the style of ${style}`;
+    let finalPrompt = style === 'none' ? prompt : `${prompt}, in the style of ${style}`;
 
+    // If there are reference images, use the vision model to generate a new prompt
+    if (referenceImages.length > 0) {
+      const systemInstruction = "You are an AI assistant that combines a user's text prompt with reference images to create a new, highly detailed prompt for an image generation model. Describe the scene, style, and content of the reference images and merge it with the user's text prompt to create a single, cohesive, and descriptive new prompt. The new prompt should be a single paragraph.";
+
+      const parts: any[] = [
+        { text: "User's prompt: " + prompt },
+        ...referenceImages.map(img => ({ inlineData: { data: img.data, mimeType: img.mimeType } }))
+      ];
+
+      const response = await client.models.generateContent({
+        model: models.vision,
+        contents: { parts },
+        config: { systemInstruction, temperature: 0.7 },
+      });
+      finalPrompt = response.text;
+    }
+
+    const mimeType = 'image/png';
     const response = await client.models.generateImages({
       model: models.images,
       prompt: finalPrompt,
       config: { numberOfImages: 1, outputMimeType: mimeType, aspectRatio },
     });
-    
+
     const { image } = response.generatedImages[0];
     return { data: image.imageBytes, mimeType, url: `data:${mimeType};base64,${image.imageBytes}` };
   } catch (error) {

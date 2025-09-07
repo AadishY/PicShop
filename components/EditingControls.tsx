@@ -73,13 +73,7 @@ const EditingControls: React.FC<EditingControlsProps> = ({
     <div className="flex flex-col gap-6">
       <>
         <div>
-          <div className="flex justify-between items-center mb-2">
-            <label htmlFor="prompt" className="block text-sm font-medium text-gray-300">Editing Instructions</label>
-            <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} className="text-xs">
-              <UploadIcon className="w-4 h-4 mr-1" />
-              Upload New
-            </Button>
-          </div>
+          <label htmlFor="prompt" className="block text-sm font-medium text-gray-300 mb-2">Editing Instructions</label>
           <textarea
             id="prompt"
             rows={3}
