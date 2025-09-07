@@ -1,0 +1,5 @@
+{
+  "name": "Aadish AI Picshop",
+  "description": "An AI-powered photo editing and generation application using Google's Gemini models. Edit your photos with text prompts, generate new images from your imagination, and explore creative possibilities.",
+  "requestFramePermissions": []
+}
